@@ -1,5 +1,7 @@
 #include "ZeroRenderer.h"
 
+const int gNumFrameResources = 3; // ÈýÖØ»º³å
+
 ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) {}
 
 ZeroRenderer::~ZeroRenderer() {}
@@ -79,7 +81,14 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
 	// Reusing the command list reuses memory.
-	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
+	if (mIsWireframe)
+	{
+		ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque_wireframe"].Get()));
+	}
+	else
+	{
+		ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
+	}
 
 	mCommandList->RSSetViewports(1, &mScreenViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
@@ -116,8 +125,13 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 	// The root signature knows how many descriptors are expected in the table.
 	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+
 	mCommandList->SetPipelineState(mPSOs["sky"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
+
+	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
@@ -188,6 +202,11 @@ void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 
 	if (GetAsyncKeyState('D') & 0x8000)
 		mCamera.Strafe(10.0f * dt);
+
+	if (GetAsyncKeyState('1') & 0x8000)
+		mIsWireframe = true;
+	else
+		mIsWireframe = false;
 
 	mCamera.UpdateViewMatrix();
 }
@@ -292,17 +311,19 @@ void ZeroRenderer::LoadTextures()
 	std::vector<std::string> texNames =
 	{
 		"bricksDiffuseMap",
+		"brokenGlassDiffuseMap",
 		"tileDiffuseMap",
 		"defaultDiffuseMap",
-		"skyCubeMap"
+		"skyCubeMap",
 	};
 
 	std::vector<std::wstring> texFilenames =
 	{
-		L"..\\Asset\\bricks2.dds",
+		L"..\\Asset\\bricks.dds",
+		L"..\\Asset\\BrokenGlass.dds",
 		L"..\\Asset\\tile.dds",
 		L"..\\Asset\\white1x1.dds",
-		L"..\\Asset\\grasscube1024.dds",
+		L"..\\Asset\\snowcube1024.dds",
 	};
 
 	for (int i = 0; i < (int)texNames.size(); ++i)
@@ -376,45 +397,40 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	auto bricksTex = mTextures["bricksDiffuseMap"]->Resource;
-	auto tileTex = mTextures["tileDiffuseMap"]->Resource;
-	auto whiteTex = mTextures["defaultDiffuseMap"]->Resource;
-	auto skyTex = mTextures["skyCubeMap"]->Resource;
+	std::vector<ComPtr<ID3D12Resource>> tex2DList = {
+		mTextures["bricksDiffuseMap"]->Resource,
+		mTextures["tileDiffuseMap"]->Resource,
+		mTextures["defaultDiffuseMap"]->Resource,
+		mTextures["brokenGlassDiffuseMap"]->Resource,
+	};
+
+	auto skyCubeMap = mTextures["skyCubeMap"]->Resource;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = bricksTex->GetDesc().Format;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // default
 	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = bricksTex->GetDesc().MipLevels;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	md3dDevice->CreateShaderResourceView(bricksTex.Get(), &srvDesc, hDescriptor); // index : 0
+	
+	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
+	{
+		srvDesc.Format = tex2DList[i]->GetDesc().Format;
+		srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
+		md3dDevice->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, hDescriptor);
 
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+		// next descriptor
+		hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
+	}
 
-	srvDesc.Format = tileTex->GetDesc().Format;
-	srvDesc.Texture2D.MipLevels = tileTex->GetDesc().MipLevels;
-	md3dDevice->CreateShaderResourceView(tileTex.Get(), &srvDesc, hDescriptor);   // index : 1
-
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
-
-	srvDesc.Format = whiteTex->GetDesc().Format;
-	srvDesc.Texture2D.MipLevels = whiteTex->GetDesc().MipLevels;
-	md3dDevice->CreateShaderResourceView(whiteTex.Get(), &srvDesc, hDescriptor);  // index : 2
-
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
-
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;  // cube mapping
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 	srvDesc.TextureCube.MostDetailedMip = 0;
-	srvDesc.TextureCube.MipLevels = skyTex->GetDesc().MipLevels;
+	srvDesc.TextureCube.MipLevels = skyCubeMap->GetDesc().MipLevels;
 	srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
-	srvDesc.Format = skyTex->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(skyTex.Get(), &srvDesc, hDescriptor);    // index : 3
+	srvDesc.Format = skyCubeMap->GetDesc().Format;
+	md3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDesc, hDescriptor);
 
-	mSkyTexHeapIndex = 3;
+	mSkyTexHeapIndex = (UINT)tex2DList.size();
+	md3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDesc, hDescriptor);    // index : 4
 }
 
 void ZeroRenderer::BuildShadersAndInputLayout()
@@ -589,6 +605,7 @@ void ZeroRenderer::BuildPSOs()
 		mShaders["opaquePS"]->GetBufferSize()
 	};
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	//opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
@@ -599,6 +616,10 @@ void ZeroRenderer::BuildPSOs()
 	opaquePsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
 	opaquePsoDesc.DSVFormat = mDepthStencilFormat;
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC wirePsoDesc = opaquePsoDesc;
+	wirePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&wirePsoDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
 
 	//
 	// PSO for sky.
@@ -624,6 +645,32 @@ void ZeroRenderer::BuildPSOs()
 		mShaders["skyPS"]->GetBufferSize()
 	};
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&skyPsoDesc, IID_PPV_ARGS(&mPSOs["sky"])));
+
+	//
+	// PSO For TransParent
+	//
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
+
+	transparentPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+	transparencyBlendDesc.BlendEnable = true;
+	transparencyBlendDesc.LogicOpEnable = false;
+
+	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+
+	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+
+	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
+
 }
 
 void ZeroRenderer::BuildFrameResources()
@@ -661,9 +708,17 @@ void ZeroRenderer::BuildMaterials()
 	mirror0->FresnelR0 = XMFLOAT3(0.98f, 0.97f, 0.95f);
 	mirror0->Roughness = 0.1f;
 
+	auto brokenGlass0 = std::make_unique<Material>();
+	brokenGlass0->Name = "brokenGlass0";
+	brokenGlass0->MatCBIndex = 3;
+	brokenGlass0->DiffuseSrvHeapIndex = 3;
+	brokenGlass0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	brokenGlass0->FresnelR0 = XMFLOAT3(0.727811f, 0.626959f, 0.626959f);
+	brokenGlass0->Roughness = 1.0f - 0.088f;
+
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
-	skullMat->MatCBIndex = 3;
+	skullMat->MatCBIndex = 4;
 	skullMat->DiffuseSrvHeapIndex = 2;
 	skullMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.2f, 0.2f, 0.2f);
@@ -671,8 +726,8 @@ void ZeroRenderer::BuildMaterials()
 
 	auto sky = std::make_unique<Material>();
 	sky->Name = "sky";
-	sky->MatCBIndex = 4;
-	sky->DiffuseSrvHeapIndex = 3;
+	sky->MatCBIndex = 5;
+	sky->DiffuseSrvHeapIndex = 4;
 	sky->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	sky->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	sky->Roughness = 1.0f;
@@ -682,6 +737,7 @@ void ZeroRenderer::BuildMaterials()
 	mMaterials["mirror0"] = std::move(mirror0);
 	mMaterials["skullMat"] = std::move(skullMat);
 	mMaterials["sky"] = std::move(sky);
+	mMaterials["brokenGlass0"] = std::move(brokenGlass0);
 }
 
 void ZeroRenderer::BuildRenderItems()
@@ -700,19 +756,75 @@ void ZeroRenderer::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
 	mAllRitems.push_back(std::move(skyRitem));
 
-	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
-	boxRitem->ObjCBIndex = 1;
-	boxRitem->Mat = mMaterials["bricks0"].get();
-	boxRitem->Geo = mGeometries["shapeGeo"].get();
-	boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
-	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
-	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
+	//auto boxRitem = std::make_unique<RenderItem>();
+	//XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 1.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	//XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	//boxRitem->ObjCBIndex = 1;
+	//boxRitem->Mat = mMaterials["bricks0"].get();
+	//boxRitem->Geo = mGeometries["shapeGeo"].get();
+	//boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
+	//boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
+	//boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
-	mAllRitems.push_back(std::move(boxRitem));
+	//mRitemLayer[(int)RenderLayer::Opaque].push_back(boxRitem.get());
+	//mAllRitems.push_back(std::move(boxRitem));
+
+	auto gridRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&gridRitem->World, XMMatrixScaling(3.0f, 3.0f, 3.0f));
+	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
+	gridRitem->ObjCBIndex = 1;
+	gridRitem->Mat = mMaterials["tile0"].get();
+	gridRitem->Geo = mGeometries["shapeGeo"].get();
+	gridRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
+	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
+	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
+	mAllRitems.push_back(std::move(gridRitem));
+
+	auto sphereRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f));
+	sphereRitem->TexTransform = MathHelper::Identity4x4();
+	sphereRitem->ObjCBIndex = 2;
+	sphereRitem->Mat = mMaterials["mirror0"].get();
+	sphereRitem->Geo = mGeometries["shapeGeo"].get();
+	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["sphere"].IndexCount;
+	sphereRitem->StartIndexLocation = sphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
+	sphereRitem->BaseVertexLocation = sphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(sphereRitem.get());
+	mAllRitems.push_back(std::move(sphereRitem));
+
+	auto brickSphereRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&brickSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 0.0f));
+	brickSphereRitem->TexTransform = MathHelper::Identity4x4();
+	brickSphereRitem->ObjCBIndex = 3;
+	brickSphereRitem->Mat = mMaterials["bricks0"].get();
+	brickSphereRitem->Geo = mGeometries["shapeGeo"].get();
+	brickSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	brickSphereRitem->IndexCount = brickSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
+	brickSphereRitem->StartIndexLocation = brickSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
+	brickSphereRitem->BaseVertexLocation = brickSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(brickSphereRitem.get());
+	mAllRitems.push_back(std::move(brickSphereRitem));
+
+	auto transSphereRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&transSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(-8.0f, 6.0f, 0.0f));
+	transSphereRitem->TexTransform = MathHelper::Identity4x4();
+	transSphereRitem->ObjCBIndex = 4;
+	transSphereRitem->Mat = mMaterials["brokenGlass0"].get();
+	transSphereRitem->Geo = mGeometries["shapeGeo"].get();
+	transSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	transSphereRitem->IndexCount = transSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
+	transSphereRitem->StartIndexLocation = transSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
+	transSphereRitem->BaseVertexLocation = transSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::Transparent].push_back(transSphereRitem.get());
+	mAllRitems.push_back(std::move(transSphereRitem));
 }
 
 void ZeroRenderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)

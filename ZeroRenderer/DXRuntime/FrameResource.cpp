@@ -1,6 +1,6 @@
 #include "FrameResource.h"
 
-FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
+FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount, UINT maxInstanceCount)
 {
     // create the own commandAllocator
     ThrowIfFailed(device->CreateCommandAllocator(
@@ -8,9 +8,11 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCo
         IID_PPV_ARGS(CmdListAlloc.GetAddressOf())));
 
     PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
+
     ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
 
-    MaterialBuffer = std::make_unique<UploadBuffer<MaterialData>>(device, materialCount, false);
+    //For Instancing
+    MaterialBuffer = std::make_unique<UploadBuffer<MaterialData>>(device, maxInstanceCount, false);
 }
 
 FrameResource::~FrameResource()

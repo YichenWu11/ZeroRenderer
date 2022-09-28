@@ -61,6 +61,16 @@ struct MaterialData
 	UINT MaterialPad2;
 };
 
+struct InstanceData
+{
+    DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
+    DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
+    UINT MaterialIndex;
+    UINT InstancePad0;
+    UINT InstancePad1;
+    UINT InstancePad2;
+};
+
 // vertex
 struct Vertex
 {
@@ -73,7 +83,7 @@ struct Vertex
 class FrameResource
 {
 public:
-    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount);
+    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount, UINT maxInstanceCount = 25);
 
     // ½ûÖ¹¿½±´
     FrameResource(const FrameResource& rhs) = delete;
@@ -92,6 +102,8 @@ public:
     std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
 
     std::unique_ptr<UploadBuffer<MaterialData>> MaterialBuffer = nullptr;
+
+    std::unique_ptr<UploadBuffer<InstanceData>> InstanceBuffer = nullptr;
 
     UINT64 Fence = 0;  // for sync
 };

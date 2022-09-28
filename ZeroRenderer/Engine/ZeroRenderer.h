@@ -16,8 +16,6 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
-//const int gNumFrameResources = 3;
-
 class ZeroRenderer final : public D3DApp
 {
 public:
@@ -82,4 +80,6 @@ private:
     Camera mCamera;
 
     POINT mLastMousePos;
+
+    bool mIsWireframe = false;
 };
