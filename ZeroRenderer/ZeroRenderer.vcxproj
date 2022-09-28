@@ -129,7 +129,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BoxApp.cpp" />
     <ClCompile Include="Common\Camera.cpp" />
     <ClCompile Include="Common\d3dApp.cpp" />
     <ClCompile Include="Common\d3dUtil.cpp" />
@@ -137,6 +136,11 @@
     <ClCompile Include="Common\GameTimer.cpp" />
     <ClCompile Include="Common\GeometryGenerator.cpp" />
     <ClCompile Include="Common\MathHelper.cpp" />
+    <ClCompile Include="DXRuntime\FrameResource.cpp" />
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Shader\GlobalSamplers.cpp" />
+    <ClCompile Include="Shader\PSOManager.cpp" />
+    <ClCompile Include="Engine\ZeroRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\Camera.h" />
@@ -149,7 +153,12 @@
     <ClInclude Include="Common\MathHelper.h" />
     <ClInclude Include="Common\Metalib.h" />
     <ClInclude Include="Common\UploadBuffer.h" />
+    <ClInclude Include="DXRuntime\FrameResource.h" />
     <ClInclude Include="Resource\标头.h" />
+    <ClInclude Include="Shader\GlobalSamplers.h" />
+    <ClInclude Include="Shader\PSOManager.h" />
+    <ClInclude Include="Shader\RenderItem.h" />
+    <ClInclude Include="Engine\ZeroRenderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

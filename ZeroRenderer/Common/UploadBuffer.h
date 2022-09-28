@@ -54,7 +54,6 @@ public:
         return mUploadBuffer.Get();  // 获取上传缓冲区资源
     }
 
-    // 把资源从CPU复制到Data种
     void CopyData(int elementIndex, const T& data)
     {
         memcpy(&mMappedData[elementIndex * mElementByteSize], &data, sizeof(T));

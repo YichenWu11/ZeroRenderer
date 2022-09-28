@@ -48,7 +48,19 @@
     <ClCompile Include="Common\MathHelper.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
-    <ClCompile Include="BoxApp.cpp">
+    <ClCompile Include="Main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader\GlobalSamplers.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader\PSOManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DXRuntime\FrameResource.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\ZeroRenderer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -84,6 +96,21 @@
       <Filter>头文件\Common</Filter>
     </ClInclude>
     <ClInclude Include="Resource\标头.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\GlobalSamplers.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\PSOManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXRuntime\FrameResource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\RenderItem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\ZeroRenderer.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
