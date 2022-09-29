@@ -5,10 +5,10 @@ A Simple Renderer Based on DirectX12
 
 ## TODOS
 - [x] cube mapping (sky box)
-- [ ] quaternions
-- [ ] shadow map
+- [x] shadow map
 - [ ] normal map
 - [ ] a series of managers
+- [ ] quaternions
 - [ ] Deferred rendering (may be)
 - [ ] Forward+ rendering
 - [ ] PBR (may be)
