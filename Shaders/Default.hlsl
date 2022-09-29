@@ -94,7 +94,7 @@ float4 PS(VertexOut pin) : SV_Target
 	litColor.rgb += shininess * fresnelFactor * reflectionColor.rgb;
 
     // Common convention to take alpha from diffuse albedo.
-    litColor.a = saturate(diffuseAlbedo.a + 0.2);
+    litColor.a = saturate(diffuseAlbedo.a + 0.1);
 
     return litColor;
 }

@@ -319,7 +319,7 @@ void ZeroRenderer::LoadTextures()
 
 	std::vector<std::wstring> texFilenames =
 	{
-		L"..\\Asset\\bricks.dds",
+		L"..\\Asset\\bricks2.dds",
 		L"..\\Asset\\BrokenGlass.dds",
 		L"..\\Asset\\tile.dds",
 		L"..\\Asset\\white1x1.dds",
