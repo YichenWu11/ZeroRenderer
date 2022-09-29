@@ -4,7 +4,7 @@
 
 // Defaults for number of lights.
 #ifndef NUM_DIR_LIGHTS
-    #define NUM_DIR_LIGHTS 3
+    #define NUM_DIR_LIGHTS 1
 #endif
 
 #ifndef NUM_POINT_LIGHTS
@@ -28,7 +28,8 @@ struct VertexIn
 struct VertexOut
 {
 	float4 PosH    : SV_POSITION;
-    float3 PosW    : POSITION;
+    float4 ShadowPosH : POSITION0;
+    float3 PosW    : POSITION1;
     float3 NormalW : NORMAL;
 	float2 TexC    : TEXCOORD;
 };
@@ -53,6 +54,9 @@ VertexOut VS(VertexIn vin)
 	// Output vertex attributes for interpolation across triangle.
 	float4 texC = mul(float4(vin.TexC, 0.0f, 1.0f), gTexTransform);
 	vout.TexC = mul(texC, matData.MatTransform).xy;
+
+    // Generate projective tex-coords to project shadow map onto scene.
+    vout.ShadowPosH = mul(posW, gShadowTransform);
 	
     return vout;
 }
@@ -78,11 +82,17 @@ float4 PS(VertexOut pin) : SV_Target
     // Light terms.
     float4 ambient = gAmbientLight*diffuseAlbedo;
 
+    // Only the first light casts a shadow.
+    float3 shadowFactor = float3(1.0f, 1.0f, 1.0f);
+    shadowFactor[0] = CalcShadowFactor(pin.ShadowPosH);
+
 	const float shininess = 1.0f - roughness;
     Material mat = { diffuseAlbedo, fresnelR0, shininess };
-    float3 shadowFactor = 1.0f;
+    // float3 shadowFactor = 1.0f;
+    // float4 directLight = ComputeLighting(gLights, mat, pin.PosW,
+    //     pin.NormalW, toEyeW, shadowFactor[0]);
     float4 directLight = ComputeLighting(gLights, mat, pin.PosW,
-        pin.NormalW, toEyeW, shadowFactor);
+        pin.NormalW, toEyeW, shadowFactor);        
 
     float4 litColor = ambient + directLight;
 
@@ -95,7 +105,8 @@ float4 PS(VertexOut pin) : SV_Target
 
     // Common convention to take alpha from diffuse albedo.
     litColor.a = saturate(diffuseAlbedo.a + 0.1);
-
+    // litColor.a = diffuseAlbedo.a;
+    // if (shadowFactor[0] > 0.5f) return (1.0f, 0.0f, 0.0f, 1.0f);
     return litColor;
 }
 
