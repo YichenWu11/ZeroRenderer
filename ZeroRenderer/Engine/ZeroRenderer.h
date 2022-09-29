@@ -11,6 +11,7 @@
 #include "../Shader/GlobalSamplers.h"
 #include "../Shader/PSOManager.h"
 #include "../Shader/RenderItem.h"
+#include "../Shader/ShadowMap.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -30,6 +31,7 @@ private:
     virtual void OnResize() override;
     virtual void Update(const GameTimer& gt) override;
     virtual void Draw(const GameTimer& gt) override;
+    virtual void CreateRtvAndDsvDescriptorHeaps() override;
 
     virtual void OnMouseDown(WPARAM btnState, int x, int y) override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y) override;
@@ -39,7 +41,9 @@ private:
     void AnimateMaterials(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
     void UpdateMaterialBuffer(const GameTimer& gt);
+    void UpdateShadowTransform(const GameTimer& gt);
     void UpdateMainPassCB(const GameTimer& gt);
+    void UpdateShadowPassCB(const GameTimer& gt);
 
     void LoadTextures();
     void BuildRootSignature();
@@ -51,6 +55,7 @@ private:
     void BuildMaterials();
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+    void DrawSceneToShadowMap();
 
 private:
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -73,13 +78,39 @@ private:
 
     std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 
-    PassConstants mMainPassCB;
+    PassConstants mMainPassCB;   // index 0 of pass cbuffer.
+    PassConstants mShadowPassCB; // index 1 of pass cbuffer.
 
     UINT mSkyTexHeapIndex = 0; // skybox index in srv heap
+    UINT mShadowMapHeapIndex = 0;
+
+    UINT mNullCubeSrvIndex = 0;
+    UINT mNullTexSrvIndex = 0;
+
+    CD3DX12_GPU_DESCRIPTOR_HANDLE mNullSrv;
 
     Camera mCamera;
 
     POINT mLastMousePos;
 
     bool mIsWireframe = false;
+
+    std::unique_ptr<ShadowMap> mShadowMap;
+
+    DirectX::BoundingSphere mSceneBounds;
+
+    float mLightNearZ = 0.0f;
+    float mLightFarZ = 0.0f;
+    XMFLOAT3 mLightPosW;
+    XMFLOAT4X4 mLightView = MathHelper::Identity4x4();
+    XMFLOAT4X4 mLightProj = MathHelper::Identity4x4();
+    XMFLOAT4X4 mShadowTransform = MathHelper::Identity4x4();
+
+    float mLightRotationAngle = 0.0f;
+    XMFLOAT3 mBaseLightDirections[3] = {
+        XMFLOAT3(0.57735f, -0.57735f, 0.57735f),
+        XMFLOAT3(-0.57735f, -0.57735f, 0.57735f),
+        XMFLOAT3(0.0f, -0.707f, -0.707f)
+    };
+    XMFLOAT3 mRotatedLightDirections[3];
 };

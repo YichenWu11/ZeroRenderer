@@ -143,6 +143,7 @@
     <ClCompile Include="Shader\GlobalSamplers.cpp" />
     <ClCompile Include="Shader\PSOManager.cpp" />
     <ClCompile Include="Engine\ZeroRenderer.cpp" />
+    <ClCompile Include="Shader\ShadowMap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\Camera.h" />
@@ -161,6 +162,7 @@
     <ClInclude Include="Shader\PSOManager.h" />
     <ClInclude Include="Shader\RenderItem.h" />
     <ClInclude Include="Engine\ZeroRenderer.h" />
+    <ClInclude Include="Shader\ShadowMap.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
