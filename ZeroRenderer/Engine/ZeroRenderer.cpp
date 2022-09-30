@@ -127,8 +127,8 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 	mCommandList->SetPipelineState(mPSOs["opaque"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
-	mCommandList->SetPipelineState(mPSOs["debug"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Debug]);
+	//mCommandList->SetPipelineState(mPSOs["debug"].Get());
+	//DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Debug]);
 
 	mCommandList->SetPipelineState(mPSOs["sky"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
@@ -910,7 +910,7 @@ void ZeroRenderer::BuildRenderItems()
 	mAllRitems.push_back(std::move(sphereRitem));
 
 	auto brickSphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&brickSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 0.0f));
+	XMStoreFloat4x4(&brickSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f));
 	brickSphereRitem->TexTransform = MathHelper::Identity4x4();
 	brickSphereRitem->ObjCBIndex = 3;
 	brickSphereRitem->Mat = mMaterials["bricks0"].get();
@@ -924,7 +924,7 @@ void ZeroRenderer::BuildRenderItems()
 	mAllRitems.push_back(std::move(brickSphereRitem));
 
 	auto transSphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&transSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(-8.0f, 6.0f, 0.0f));
+	XMStoreFloat4x4(&transSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(-8.0f, 6.0f, -3.0f));
 	transSphereRitem->TexTransform = MathHelper::Identity4x4();
 	transSphereRitem->ObjCBIndex = 4;
 	transSphereRitem->Mat = mMaterials["brokenGlass0"].get();

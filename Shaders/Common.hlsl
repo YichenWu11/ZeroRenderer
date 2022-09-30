@@ -83,6 +83,7 @@ cbuffer cbPass : register(b1)
     Light gLights[MaxLights];
 };
 
+// 4-tap PCF kernel
 float CalcShadowFactor(float4 shadowPosH)
 {
     // Complete projection by doing division by w.
@@ -98,6 +99,7 @@ float CalcShadowFactor(float4 shadowPosH)
     float dx = 1.0f / (float)width;
 
     float percentLit = 0.0f;
+
     const float2 offsets[9] =
     {
         float2(-dx,  -dx), float2(0.0f,  -dx), float2(dx,  -dx),
@@ -108,6 +110,7 @@ float CalcShadowFactor(float4 shadowPosH)
     [unroll]
     for(int i = 0; i < 9; ++i)
     {
+        // 一次SampleCmpLevelZero调用，可以得到4个有效像素
         percentLit += gShadowMap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy + offsets[i], depth).r;
     }
     
