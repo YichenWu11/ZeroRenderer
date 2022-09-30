@@ -8,6 +8,7 @@ A Simple Renderer Based on DirectX12
 - [x] shadow map
 - [x] normal map
 - [ ] a series of managers
+- [ ] SSAO
 - [ ] quaternions
 - [ ] Deferred rendering (may be)
 - [ ] Forward+ rendering
