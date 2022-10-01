@@ -25,6 +25,8 @@ bool ZeroRenderer::Initialize()
 
 	matManager = std::make_unique<MatManager>();
 
+	mScene     = std::make_unique<Scene>();
+
 	LoadTextures();
 	BuildRootSignature();
 	BuildDescriptorHeaps();
@@ -132,16 +134,16 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 	mCommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("opaque"));
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("sky"));
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Sky));
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
 
 	//mCommandList->SetPipelineState(psoManager->GetPipelineState("debug"));
-	//DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Debug]);
+	//DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Debug));
 
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
@@ -231,24 +233,7 @@ void ZeroRenderer::UpdateObjectCBs(const GameTimer& gt)
 {
 	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
 
-	for (auto& item : mAllRitems)
-	{
-		if (item->NumFramesDirty > 0)
-		{
-			XMMATRIX world = XMLoadFloat4x4(&item->World);
-			XMMATRIX texTransform = XMLoadFloat4x4(&item->TexTransform);
-
-			ObjectConstants objConstants;
-			XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
-			XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
-			objConstants.MaterialIndex = item->Mat->MatCBIndex;
-
-			currObjectCB->CopyData(item->ObjCBIndex, objConstants);
-
-			// Next FrameResource need to be updated too.
-			item->NumFramesDirty--;
-		}
-	}
+	mScene->UpdateObjectCBs(currObjectCB);
 }
 
 void ZeroRenderer::UpdateMaterialBuffer(const GameTimer& gt)
@@ -612,7 +597,7 @@ void ZeroRenderer::BuildFrameResources()
 	for (int i = 0; i < gNumFrameResources; ++i)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			2, (UINT)mAllRitems.size(), (UINT)matManager->GetSize()));
+			2, (UINT)mScene->GetRitemSize(), (UINT)matManager->GetSize()));
 	}
 }
 
@@ -646,90 +631,79 @@ void ZeroRenderer::BuildMaterials()
 
 void ZeroRenderer::BuildRenderItems()
 {
-	auto skyRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&skyRitem->World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
-	skyRitem->TexTransform = MathHelper::Identity4x4();
-	skyRitem->ObjCBIndex = 0;
-	skyRitem->Mat = matManager->GetMaterial("sky");
-	skyRitem->Geo = mGeometries["shapeGeo"].get();
-	skyRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	skyRitem->IndexCount = skyRitem->Geo->DrawArgs["sphere"].IndexCount;
-	skyRitem->StartIndexLocation = skyRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-	skyRitem->BaseVertexLocation = skyRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+	auto general_geo = mGeometries["shapeGeo"].get();
 
-	mRitemLayer[(int)RenderLayer::Sky].push_back(skyRitem.get());
-	mAllRitems.push_back(std::move(skyRitem));
+	mScene->CreateRenderItem(
+		RenderLayer::Sky,
+		XMMatrixScaling(5000.0f, 5000.0f, 5000.0f),
+		XMMatrixIdentity(),
+		0,
+		matManager->GetMaterial("sky"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
+	);
 
-	auto gridRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&gridRitem->World, XMMatrixScaling(3.0f, 3.0f, 3.0f));
-	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
-	gridRitem->ObjCBIndex = 1;
-	gridRitem->Mat = matManager->GetMaterial("tile0");
-	gridRitem->Geo = mGeometries["shapeGeo"].get();
-	gridRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
-	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(3.0f, 3.0f, 3.0f),
+		XMMatrixScaling(8.0f, 8.0f, 1.0f),
+		1,
+		matManager->GetMaterial("tile0"),
+		general_geo,
+		general_geo->DrawArgs["grid"].IndexCount,
+		general_geo->DrawArgs["grid"].StartIndexLocation,
+		general_geo->DrawArgs["grid"].BaseVertexLocation
+	);
 
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
-	mAllRitems.push_back(std::move(gridRitem));
+	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f),
+		XMMatrixIdentity(),
+		2,
+		matManager->GetMaterial("mirror0"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
+	);
 
-	auto sphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f));
-	sphereRitem->TexTransform = MathHelper::Identity4x4();
-	sphereRitem->ObjCBIndex = 2;
-	sphereRitem->Mat = matManager->GetMaterial("mirror0");
-	sphereRitem->Geo = mGeometries["shapeGeo"].get();
-	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["sphere"].IndexCount;
-	sphereRitem->StartIndexLocation = sphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-	sphereRitem->BaseVertexLocation = sphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
+		XMMatrixIdentity(),
+		3,
+		matManager->GetMaterial("bricks0"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
+	);
 
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(sphereRitem.get());
-	mAllRitems.push_back(std::move(sphereRitem));
+	mScene->CreateRenderItem(
+		RenderLayer::Transparent,
+		XMMatrixScaling(4.0f, 4.0f, 4.0f)* XMMatrixTranslation(-8.0f, 6.0f, -3.0f),
+		XMMatrixIdentity(),
+		4,
+		matManager->GetMaterial("brokenGlass0"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
+	);
 
-	auto brickSphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&brickSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f));
-	brickSphereRitem->TexTransform = MathHelper::Identity4x4();
-	brickSphereRitem->ObjCBIndex = 3;
-	brickSphereRitem->Mat = matManager->GetMaterial("bricks0");
-	brickSphereRitem->Geo = mGeometries["shapeGeo"].get();
-	brickSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	brickSphereRitem->IndexCount = brickSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
-	brickSphereRitem->StartIndexLocation = brickSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-	brickSphereRitem->BaseVertexLocation = brickSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
-
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(brickSphereRitem.get());
-	mAllRitems.push_back(std::move(brickSphereRitem));
-
-	auto transSphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&transSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(-8.0f, 6.0f, -3.0f));
-	transSphereRitem->TexTransform = MathHelper::Identity4x4();
-	transSphereRitem->ObjCBIndex = 4;
-	transSphereRitem->Mat = matManager->GetMaterial("brokenGlass0");
-	transSphereRitem->Geo = mGeometries["shapeGeo"].get();
-	transSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	transSphereRitem->IndexCount = transSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
-	transSphereRitem->StartIndexLocation = transSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
-	transSphereRitem->BaseVertexLocation = transSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
-
-	mRitemLayer[(int)RenderLayer::Transparent].push_back(transSphereRitem.get());
-	mAllRitems.push_back(std::move(transSphereRitem));
-
-	auto quadRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&quadRitem->World, XMMatrixRotationX(45.0f));
-	//quadRitem->World = MathHelper::Identity4x4();
-	quadRitem->TexTransform = MathHelper::Identity4x4();
-	quadRitem->ObjCBIndex = 5;
-	quadRitem->Mat = matManager->GetMaterial("bricks0");
-	quadRitem->Geo = mGeometries["shapeGeo"].get();
-	quadRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	quadRitem->IndexCount = quadRitem->Geo->DrawArgs["quad"].IndexCount;
-	quadRitem->StartIndexLocation = quadRitem->Geo->DrawArgs["quad"].StartIndexLocation;
-	quadRitem->BaseVertexLocation = quadRitem->Geo->DrawArgs["quad"].BaseVertexLocation;
-
-	mRitemLayer[(int)RenderLayer::Debug].push_back(quadRitem.get());
-	mAllRitems.push_back(std::move(quadRitem));
+	mScene->CreateRenderItem(
+		RenderLayer::Debug,
+		XMMatrixRotationX(45.0f),
+		XMMatrixIdentity(),
+		5,
+		matManager->GetMaterial("bricks0"),
+		general_geo,
+		general_geo->DrawArgs["quad"].IndexCount,
+		general_geo->DrawArgs["quad"].StartIndexLocation,
+		general_geo->DrawArgs["quad"].BaseVertexLocation
+	);
 }
 
 void ZeroRenderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
@@ -782,10 +756,10 @@ void ZeroRenderer::DrawSceneToShadowMap()
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("shadow_opaque"));
 
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
 
 	// Change back to GENERIC_READ so we can read the texture in a shader.
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(mShadowMap->Resource(),

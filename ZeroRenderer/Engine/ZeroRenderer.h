@@ -72,13 +72,11 @@ private:
     std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
     std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 
+    std::unique_ptr<Scene>         mScene;
+
     std::unique_ptr<PSOManager>    psoManager;
     std::unique_ptr<MatManager>    matManager;
     std::unique_ptr<ShaderManager> shaderManager;
-
-    std::vector<std::unique_ptr<RenderItem>> mAllRitems;
-
-    std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 
     PassConstants mMainPassCB;      // index 0 of pass cbuffer.
     PassConstants mShadowPassCB;    // index 1 of pass cbuffer.
