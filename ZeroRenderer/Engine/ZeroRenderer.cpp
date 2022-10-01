@@ -333,7 +333,7 @@ void ZeroRenderer::BuildRootSignature()
 	slotRootParameter[0].InitAsConstantBufferView(0);    // 绑 objCB
 	slotRootParameter[1].InitAsConstantBufferView(1);    // 绑 passCB
 	slotRootParameter[2].InitAsShaderResourceView(0, 1); // 绑 matBuffer
-	slotRootParameter[3].InitAsDescriptorTable(1, &texTable0, D3D12_SHADER_VISIBILITY_PIXEL); // 绑 cubemap
+	slotRootParameter[3].InitAsDescriptorTable(1, &texTable0, D3D12_SHADER_VISIBILITY_PIXEL); // 绑 cubemap / shadow
 	slotRootParameter[4].InitAsDescriptorTable(1, &texTable1, D3D12_SHADER_VISIBILITY_PIXEL); // 绑 diffusemap(array)
 
 	auto staticSamplers = GlobalSamplers::GetSamplers(); // std::span
@@ -603,10 +603,21 @@ void ZeroRenderer::BuildFrameResources()
 
 void ZeroRenderer::BuildMaterials()
 {
+	/*
+		Args List:
+			materialName         : material 在 map of manager 中的 key
+			MatCBIndex           : 在 materialData 结构化缓冲区中的索引
+			DiffuseSrvHeapIndex  : material 的 texture 在 srvHeap 中的索引
+			DiffuseAlbedo        : 反照率
+			FresnelR0            : 菲涅尔系数
+			Roughness            : 粗糙度
+			NormalSrvHeapIndex   : material 的 normal_map 在 srvHeap 中的索引 (none --> -1)
+	*/
+
 	matManager->CreateMaterial("bricks0", 
 		0, 0, 
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 
-		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f, 1);
+		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f, 1);  // with normal_map
 
 	matManager->CreateMaterial("tile0", 
 		1, 2, 
@@ -632,6 +643,20 @@ void ZeroRenderer::BuildMaterials()
 void ZeroRenderer::BuildRenderItems()
 {
 	auto general_geo = mGeometries["shapeGeo"].get();
+
+	/*
+		Args List:
+			layer              : 该 Ritem 所属的 RenderLayer
+			world              : 世界矩阵
+			TexTransform       : 纹理变换矩阵
+			ObjCBIndex         : 其在物体常量缓冲区中的索引
+			Mat                : 该 Ritem 的材质
+			Geo                : 该物体所属的 Mesh（其中包含顶点索引缓冲区和拓扑类型等，用于绘制时绑定）
+			IndexCount         : Number of indices read from the index buffer for each instance
+			StartIndexLocation : 在索引缓冲区中的 offset
+			BaseVertexLocation : 在顶点缓冲区中的 offset
+			PrimitiveType      : 该图元的拓扑类型 (默认为 TRIANGLELIST)
+	*/
 
 	mScene->CreateRenderItem(
 		RenderLayer::Sky,
@@ -703,6 +728,18 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["quad"].IndexCount,
 		general_geo->DrawArgs["quad"].StartIndexLocation,
 		general_geo->DrawArgs["quad"].BaseVertexLocation
+	);
+
+	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
+		XMMatrixIdentity(),
+		6,
+		matManager->GetMaterial("tile0"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
 	);
 }
 
