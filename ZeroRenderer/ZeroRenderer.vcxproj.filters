@@ -69,6 +69,15 @@
     <ClCompile Include="Engine\Scene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Shader\MatManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility\public_singleton.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader\ShaderManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\Camera.h">
@@ -123,6 +132,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Scene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\MatManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\public_singleton.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\ShaderManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

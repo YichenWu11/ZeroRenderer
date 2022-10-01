@@ -31,6 +31,7 @@
 #include "MathHelper.h"
 #include "Metalib.h"
 #include <type_traits>
+#include "../Utility/public_singleton.h"
 
 extern const int gNumFrameResources;
 

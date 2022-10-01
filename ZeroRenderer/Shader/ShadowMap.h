@@ -2,7 +2,7 @@
 
 #include "../Common/d3dUtil.h"
 
-class ShadowMap
+class ShadowMap : public PublicSingleton<ShadowMap>
 {
 public:
 	ShadowMap(ID3D12Device* device, UINT width, UINT height);

@@ -23,15 +23,22 @@ bool ZeroRenderer::Initialize()
 	// create the shadow map
 	mShadowMap = std::make_unique<ShadowMap>(md3dDevice.Get(), 4096, 4096);
 
+	matManager = std::make_unique<MatManager>();
+
 	LoadTextures();
 	BuildRootSignature();
 	BuildDescriptorHeaps();
-	BuildShadersAndInputLayout();
 	BuildShapeGeometry();
 	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResources();
-	BuildPSOs();
+
+	shaderManager = std::make_unique<ShaderManager>();
+
+	// Build PSOs
+	psoManager = std::make_unique<PSOManager>(
+		md3dDevice.Get(), shaderManager->mInputLayout, mRootSignature,
+		shaderManager->mShaders, mBackBufferFormat, mDepthStencilFormat);
 
 	// Execute the initialization commands.
 	ThrowIfFailed(mCommandList->Close());
@@ -86,7 +93,7 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 
 	ThrowIfFailed(cmdListAlloc->Reset());
 
-	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
+	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), psoManager->GetPipelineState("opaque")));
 
 	/*shadow map*/
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
@@ -124,17 +131,17 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 	skyTexDescriptor.Offset(mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
 	mCommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
 
-	mCommandList->SetPipelineState(mPSOs["opaque"].Get());
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("opaque"));
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
-	//mCommandList->SetPipelineState(mPSOs["debug"].Get());
-	//DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Debug]);
-
-	mCommandList->SetPipelineState(mPSOs["sky"].Get());
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("sky"));
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
 
-	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
+
+	//mCommandList->SetPipelineState(psoManager->GetPipelineState("debug"));
+	//DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Debug]);
 
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
@@ -248,30 +255,7 @@ void ZeroRenderer::UpdateMaterialBuffer(const GameTimer& gt)
 {
 	auto currMaterialBuffer = mCurrFrameResource->MaterialBuffer.get();
 
-	// update every material data
-	for (auto& item : mMaterials)
-	{
-		// Only update the cbuffer data if the constants have changed.  If the cbuffer
-		// data changes, it needs to be updated for each FrameResource.
-		Material* mat = item.second.get();
-		if (mat->NumFramesDirty > 0)
-		{
-			XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
-
-			MaterialData matData;
-			matData.DiffuseAlbedo = mat->DiffuseAlbedo;
-			matData.FresnelR0 = mat->FresnelR0;
-			matData.Roughness = mat->Roughness;
-			XMStoreFloat4x4(&matData.MatTransform, XMMatrixTranspose(matTransform));
-			matData.DiffuseMapIndex = mat->DiffuseSrvHeapIndex;
-			matData.NormalMapIndex = mat->NormalSrvHeapIndex;
-
-			currMaterialBuffer->CopyData(mat->MatCBIndex, matData);
-
-			// Next FrameResource need to be updated too.
-			mat->NumFramesDirty--;
-		}
-	}
+	matManager->UpdateMaterialBuffer(currMaterialBuffer);
 }
 
 // 更新渲染过程常量缓冲区(几乎每帧都要更新)
@@ -495,36 +479,6 @@ void ZeroRenderer::BuildDescriptorHeaps()
 		CD3DX12_CPU_DESCRIPTOR_HANDLE(dsvCpuStart, 1, mDsvDescriptorSize));
 }
 
-void ZeroRenderer::BuildShadersAndInputLayout()
-{
-	// TODO : Build Shaders
-	const D3D_SHADER_MACRO alphaTestDefines[] =
-	{
-		"ALPHA_TEST", "1",
-		NULL, NULL
-	};
-
-	mShaders["standardVS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["opaquePS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", nullptr, "PS", "ps_5_1");
-
-	mShaders["shadowVS"] = d3dUtil::CompileShader(L"..\\Shaders\\Shadows.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["shadowOpaquePS"] = d3dUtil::CompileShader(L"..\\Shaders\\Shadows.hlsl", nullptr, "PS", "ps_5_1");
-
-	mShaders["debugVS"] = d3dUtil::CompileShader(L"..\\Shaders\\ShadowDebug.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["debugPS"] = d3dUtil::CompileShader(L"..\\Shaders\\ShadowDebug.hlsl", nullptr, "PS", "ps_5_1");
-
-	mShaders["skyVS"] = d3dUtil::CompileShader(L"..\\Shaders\\Sky.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["skyPS"] = d3dUtil::CompileShader(L"..\\Shaders\\Sky.hlsl", nullptr, "PS", "ps_5_1");
-
-	mInputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
-}
-
 void ZeroRenderer::BuildShapeGeometry()
 {
 	GeometryGenerator geoGen;
@@ -653,210 +607,41 @@ void ZeroRenderer::BuildShapeGeometry()
 	mGeometries[geo->Name] = std::move(geo);
 }
 
-//
-// TODO : class PSO Manager
-//
-
-void ZeroRenderer::BuildPSOs()
-{
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
-
-	//
-	// PSO for opaque objects.
-	//
-	ZeroMemory(&opaquePsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	opaquePsoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
-	opaquePsoDesc.pRootSignature = mRootSignature.Get();
-	opaquePsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["standardVS"]->GetBufferPointer()),
-		mShaders["standardVS"]->GetBufferSize()
-	};
-	opaquePsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
-		mShaders["opaquePS"]->GetBufferSize()
-	};
-	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	//opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	opaquePsoDesc.SampleMask = UINT_MAX;
-	opaquePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	opaquePsoDesc.NumRenderTargets = 1;
-	opaquePsoDesc.RTVFormats[0] = mBackBufferFormat;
-	opaquePsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	opaquePsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	opaquePsoDesc.DSVFormat = mDepthStencilFormat;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC wirePsoDesc = opaquePsoDesc;
-	wirePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&wirePsoDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
-
-	//
-	// PSO for sky.
-	//
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC skyPsoDesc = opaquePsoDesc;
-
-	// The camera is inside the sky sphere, so just turn off culling.
-	skyPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-
-	// Make sure the depth function is LESS_EQUAL and not just LESS.  
-	// Otherwise, the normalized depth values at z = 1 (NDC) will 
-	// fail the depth test if the depth buffer was cleared to 1.
-	skyPsoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-	skyPsoDesc.pRootSignature = mRootSignature.Get();
-	skyPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["skyVS"]->GetBufferPointer()),
-		mShaders["skyVS"]->GetBufferSize()
-	};
-	skyPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["skyPS"]->GetBufferPointer()),
-		mShaders["skyPS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&skyPsoDesc, IID_PPV_ARGS(&mPSOs["sky"])));
-
-	//
-	// PSO For TransParent
-	//
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
-
-	transparentPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-
-	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
-	transparencyBlendDesc.BlendEnable = true;
-	transparencyBlendDesc.LogicOpEnable = false;
-
-	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
-
-	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
-	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
-	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-
-	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
-	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
-
-	//
-	// PSO for shadow map pass.
-	//
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC smapPsoDesc = opaquePsoDesc;
-	smapPsoDesc.RasterizerState.DepthBias = 100000;
-	smapPsoDesc.RasterizerState.DepthBiasClamp = 0.0f;
-	smapPsoDesc.RasterizerState.SlopeScaledDepthBias = 1.0f;
-	smapPsoDesc.pRootSignature = mRootSignature.Get();
-	smapPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["shadowVS"]->GetBufferPointer()),
-		mShaders["shadowVS"]->GetBufferSize()
-	};
-	smapPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["shadowOpaquePS"]->GetBufferPointer()),
-		mShaders["shadowOpaquePS"]->GetBufferSize()
-	};
-
-	// Shadow map pass does not have a render target.
-	smapPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
-	smapPsoDesc.NumRenderTargets = 0;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&smapPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
-
-	// Shadow map pass does not have a render target.
-	smapPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
-	smapPsoDesc.NumRenderTargets = 0;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&smapPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
-
-	//
-	// PSO for debug layer.
-	//
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC debugPsoDesc = opaquePsoDesc;
-	debugPsoDesc.pRootSignature = mRootSignature.Get();
-	debugPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["debugVS"]->GetBufferPointer()),
-		mShaders["debugVS"]->GetBufferSize()
-	};
-	debugPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["debugPS"]->GetBufferPointer()),
-		mShaders["debugPS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&debugPsoDesc, IID_PPV_ARGS(&mPSOs["debug"])));
-}
-
 void ZeroRenderer::BuildFrameResources()
 {
 	for (int i = 0; i < gNumFrameResources; ++i)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			2, (UINT)mAllRitems.size(), (UINT)mMaterials.size()));
+			2, (UINT)mAllRitems.size(), (UINT)matManager->GetSize()));
 	}
 }
 
 void ZeroRenderer::BuildMaterials()
 {
-	auto bricks0 = std::make_unique<Material>();
-	bricks0->Name = "bricks0";
-	bricks0->MatCBIndex = 0;
-	bricks0->DiffuseSrvHeapIndex = 0;
-	bricks0->NormalSrvHeapIndex  = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	bricks0->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	bricks0->Roughness = 0.3f;
+	matManager->CreateMaterial("bricks0", 
+		0, 0, 
+		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 
+		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f, 1);
 
-	auto tile0 = std::make_unique<Material>();
-	tile0->Name = "tile0";
-	tile0->MatCBIndex = 1;
-	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f);
-	tile0->FresnelR0 = XMFLOAT3(0.2f, 0.2f, 0.2f);
-	tile0->Roughness = 0.1f;
+	matManager->CreateMaterial("tile0", 
+		1, 2, 
+		XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f), 
+		XMFLOAT3(0.2f, 0.2f, 0.2f), 0.1f);
 
-	auto mirror0 = std::make_unique<Material>();
-	mirror0->Name = "mirror0";
-	mirror0->MatCBIndex = 2;
-	mirror0->DiffuseSrvHeapIndex = 3;
-	mirror0->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f);
-	mirror0->FresnelR0 = XMFLOAT3(0.98f, 0.97f, 0.95f);
-	mirror0->Roughness = 0.1f;
+	matManager->CreateMaterial("mirror0",
+		2, 3,
+		XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f),
+		XMFLOAT3(0.98f, 0.97f, 0.95f), 0.1f);
 
-	auto brokenGlass0 = std::make_unique<Material>();
-	brokenGlass0->Name = "brokenGlass0";
-	brokenGlass0->MatCBIndex = 3;
-	brokenGlass0->DiffuseSrvHeapIndex = 4;
-	brokenGlass0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	brokenGlass0->FresnelR0 = XMFLOAT3(0.727811f, 0.626959f, 0.626959f);
-	brokenGlass0->Roughness = 1.0f - 0.088f;
+	matManager->CreateMaterial("brokenGlass0",
+		3, 4,
+		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
+		XMFLOAT3(0.727811f, 0.626959f, 0.626959f), 1.0f - 0.088f);
 
-	auto skullMat = std::make_unique<Material>();
-	skullMat->Name = "skullMat";
-	skullMat->MatCBIndex = 4;
-	skullMat->DiffuseSrvHeapIndex = 3;
-	skullMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
-	skullMat->FresnelR0 = XMFLOAT3(0.2f, 0.2f, 0.2f);
-	skullMat->Roughness = 0.2f;
-
-	auto sky = std::make_unique<Material>();
-	sky->Name = "sky";
-	sky->MatCBIndex = 5;
-	sky->DiffuseSrvHeapIndex = 5;
-	sky->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	sky->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	sky->Roughness = 1.0f;
-
-	mMaterials["bricks0"] = std::move(bricks0);
-	mMaterials["tile0"] = std::move(tile0);
-	mMaterials["mirror0"] = std::move(mirror0);
-	mMaterials["skullMat"] = std::move(skullMat);
-	mMaterials["sky"] = std::move(sky);
-	mMaterials["brokenGlass0"] = std::move(brokenGlass0);
+	matManager->CreateMaterial("sky",
+		5, 5,
+		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
+		XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
 }
 
 void ZeroRenderer::BuildRenderItems()
@@ -865,7 +650,7 @@ void ZeroRenderer::BuildRenderItems()
 	XMStoreFloat4x4(&skyRitem->World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
 	skyRitem->TexTransform = MathHelper::Identity4x4();
 	skyRitem->ObjCBIndex = 0;
-	skyRitem->Mat = mMaterials["sky"].get();
+	skyRitem->Mat = matManager->GetMaterial("sky");
 	skyRitem->Geo = mGeometries["shapeGeo"].get();
 	skyRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	skyRitem->IndexCount = skyRitem->Geo->DrawArgs["sphere"].IndexCount;
@@ -879,7 +664,7 @@ void ZeroRenderer::BuildRenderItems()
 	XMStoreFloat4x4(&gridRitem->World, XMMatrixScaling(3.0f, 3.0f, 3.0f));
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
 	gridRitem->ObjCBIndex = 1;
-	gridRitem->Mat = mMaterials["tile0"].get();
+	gridRitem->Mat = matManager->GetMaterial("tile0");
 	gridRitem->Geo = mGeometries["shapeGeo"].get();
 	gridRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
@@ -893,7 +678,7 @@ void ZeroRenderer::BuildRenderItems()
 	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f));
 	sphereRitem->TexTransform = MathHelper::Identity4x4();
 	sphereRitem->ObjCBIndex = 2;
-	sphereRitem->Mat = mMaterials["mirror0"].get();
+	sphereRitem->Mat = matManager->GetMaterial("mirror0");
 	sphereRitem->Geo = mGeometries["shapeGeo"].get();
 	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["sphere"].IndexCount;
@@ -907,7 +692,7 @@ void ZeroRenderer::BuildRenderItems()
 	XMStoreFloat4x4(&brickSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f));
 	brickSphereRitem->TexTransform = MathHelper::Identity4x4();
 	brickSphereRitem->ObjCBIndex = 3;
-	brickSphereRitem->Mat = mMaterials["bricks0"].get();
+	brickSphereRitem->Mat = matManager->GetMaterial("bricks0");
 	brickSphereRitem->Geo = mGeometries["shapeGeo"].get();
 	brickSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	brickSphereRitem->IndexCount = brickSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
@@ -921,7 +706,7 @@ void ZeroRenderer::BuildRenderItems()
 	XMStoreFloat4x4(&transSphereRitem->World, XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(-8.0f, 6.0f, -3.0f));
 	transSphereRitem->TexTransform = MathHelper::Identity4x4();
 	transSphereRitem->ObjCBIndex = 4;
-	transSphereRitem->Mat = mMaterials["brokenGlass0"].get();
+	transSphereRitem->Mat = matManager->GetMaterial("brokenGlass0");
 	transSphereRitem->Geo = mGeometries["shapeGeo"].get();
 	transSphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	transSphereRitem->IndexCount = transSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
@@ -932,10 +717,11 @@ void ZeroRenderer::BuildRenderItems()
 	mAllRitems.push_back(std::move(transSphereRitem));
 
 	auto quadRitem = std::make_unique<RenderItem>();
-	quadRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&quadRitem->World, XMMatrixRotationX(45.0f));
+	//quadRitem->World = MathHelper::Identity4x4();
 	quadRitem->TexTransform = MathHelper::Identity4x4();
 	quadRitem->ObjCBIndex = 5;
-	quadRitem->Mat = mMaterials["bricks0"].get();
+	quadRitem->Mat = matManager->GetMaterial("bricks0");
 	quadRitem->Geo = mGeometries["shapeGeo"].get();
 	quadRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	quadRitem->IndexCount = quadRitem->Geo->DrawArgs["quad"].IndexCount;
@@ -994,11 +780,11 @@ void ZeroRenderer::DrawSceneToShadowMap()
 	D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + 1 * passCBByteSize;
 	mCommandList->SetGraphicsRootConstantBufferView(1, passCBAddress);
 
-	mCommandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("shadow_opaque"));
 
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
-	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
 	// Change back to GENERIC_READ so we can read the texture in a shader.

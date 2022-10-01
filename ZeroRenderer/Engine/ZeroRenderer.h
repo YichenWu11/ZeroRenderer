@@ -12,6 +12,10 @@
 #include "../Shader/PSOManager.h"
 #include "../Shader/RenderItem.h"
 #include "../Shader/ShadowMap.h"
+#include "../Shader/MatManager.h"
+#include "../Shader/ShaderManager.h"
+
+#include "Scene.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -50,7 +54,6 @@ private:
     void BuildDescriptorHeaps();
     void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
-    void BuildPSOs();
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
@@ -67,21 +70,20 @@ private:
     ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 
     std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
-    std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
     std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
-    std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
-    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
-    std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;  // TODO : class for LayoutManager
+    std::unique_ptr<PSOManager>    psoManager;
+    std::unique_ptr<MatManager>    matManager;
+    std::unique_ptr<ShaderManager> shaderManager;
 
     std::vector<std::unique_ptr<RenderItem>> mAllRitems;
 
     std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 
-    PassConstants mMainPassCB;   // index 0 of pass cbuffer.
-    PassConstants mShadowPassCB; // index 1 of pass cbuffer.
+    PassConstants mMainPassCB;      // index 0 of pass cbuffer.
+    PassConstants mShadowPassCB;    // index 1 of pass cbuffer.
 
-    UINT mSkyTexHeapIndex = 0; // skybox index in srv heap
+    UINT mSkyTexHeapIndex = 0;      // skybox index in srv heap
     UINT mShadowMapHeapIndex = 0;
 
     UINT mNullCubeSrvIndex = 0;

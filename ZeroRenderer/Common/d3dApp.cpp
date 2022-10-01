@@ -693,6 +693,6 @@ void D3DApp::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format)
             L"Refresh = " + std::to_wstring(n) + L"/" + std::to_wstring(d) +
             L"\n";
 
-        ::OutputDebugString(text.c_str());
+        //::OutputDebugString(text.c_str());
     }
 }

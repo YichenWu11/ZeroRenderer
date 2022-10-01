@@ -6,7 +6,7 @@
 
 #include "../Common/d3dUtil.h"
 
-class Scene
+class Scene : PublicSingleton<Scene>
 {
 
 };

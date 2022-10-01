@@ -142,9 +142,12 @@
     <ClCompile Include="Engine\Scene.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Shader\GlobalSamplers.cpp" />
+    <ClCompile Include="Shader\MatManager.cpp" />
     <ClCompile Include="Shader\PSOManager.cpp" />
     <ClCompile Include="Engine\ZeroRenderer.cpp" />
+    <ClCompile Include="Shader\ShaderManager.cpp" />
     <ClCompile Include="Shader\ShadowMap.cpp" />
+    <ClCompile Include="Utility\public_singleton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\Camera.h" />
@@ -161,10 +164,13 @@
     <ClInclude Include="Engine\Scene.h" />
     <ClInclude Include="Resource\标头.h" />
     <ClInclude Include="Shader\GlobalSamplers.h" />
+    <ClInclude Include="Shader\MatManager.h" />
     <ClInclude Include="Shader\PSOManager.h" />
     <ClInclude Include="Shader\RenderItem.h" />
     <ClInclude Include="Engine\ZeroRenderer.h" />
+    <ClInclude Include="Shader\ShaderManager.h" />
     <ClInclude Include="Shader\ShadowMap.h" />
+    <ClInclude Include="Utility\public_singleton.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
