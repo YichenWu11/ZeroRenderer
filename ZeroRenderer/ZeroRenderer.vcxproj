@@ -138,6 +138,7 @@
     <ClCompile Include="Common\GameTimer.cpp" />
     <ClCompile Include="Common\GeometryGenerator.cpp" />
     <ClCompile Include="Common\MathHelper.cpp" />
+    <ClCompile Include="DXRuntime\CommandListHandle.cpp" />
     <ClCompile Include="DXRuntime\FrameResource.cpp" />
     <ClCompile Include="Engine\Scene.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -159,7 +160,9 @@
     <ClInclude Include="Common\GeometryGenerator.h" />
     <ClInclude Include="Common\MathHelper.h" />
     <ClInclude Include="Common\Metalib.h" />
-    <ClInclude Include="Common\UploadBuffer.h" />
+    <ClInclude Include="DXRuntime\CommandListHandle.h" />
+    <ClInclude Include="Resource\Mesh.h" />
+    <ClInclude Include="Resource\UploadBuffer.h" />
     <ClInclude Include="DXRuntime\FrameResource.h" />
     <ClInclude Include="Engine\Scene.h" />
     <ClInclude Include="Resource\标头.h" />

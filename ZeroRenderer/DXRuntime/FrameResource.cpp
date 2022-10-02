@@ -1,6 +1,8 @@
 #include "FrameResource.h"
 
-FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount, UINT maxInstanceCount)
+FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, 
+                             UINT materialCount, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList,
+                             UINT maxInstanceCount) : CmdList(cmdList)
 {
     // create the own commandAllocator
     ThrowIfFailed(device->CreateCommandAllocator(
@@ -18,4 +20,9 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objectCo
 FrameResource::~FrameResource()
 {
 
+}
+
+CommandListHandle FrameResource::Command()
+{
+    return { CmdListAlloc.Get(), CmdList.Get() };
 }

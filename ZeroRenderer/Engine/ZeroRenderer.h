@@ -2,11 +2,14 @@
 
 #include "../Common/d3dApp.h"
 #include "../Common/MathHelper.h"
-#include "../Common/UploadBuffer.h"
 #include "../Common/Camera.h"
 #include "../Common/GeometryGenerator.h"
 
 #include "../DXRuntime/FrameResource.h"
+#include "../DXRuntime/CommandListHandle.h"
+
+#include "../Resource/UploadBuffer.h"
+#include "../Resource/Mesh.h"
 
 #include "../Shader/GlobalSamplers.h"
 #include "../Shader/PSOManager.h"
@@ -59,6 +62,9 @@ private:
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
     void DrawSceneToShadowMap();
+
+    void PopulateCommandList(const GameTimer& gt);
+    void SubmitCommandList(const GameTimer& gt);
 
 private:
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;

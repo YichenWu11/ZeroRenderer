@@ -2,7 +2,10 @@
 
 #include "../Common/d3dUtil.h"
 #include "../Common/MathHelper.h"
-#include "../Common/UploadBuffer.h"
+
+#include "../Resource/UploadBuffer.h"
+
+#include "CommandListHandle.h"
 
 // render pass constants
 struct PassConstants
@@ -77,11 +80,12 @@ struct Vertex
     DirectX::XMFLOAT3 TangentU;
 };
 
-
 class FrameResource
 {
 public:
-    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount, UINT maxInstanceCount = 25);
+    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, 
+        UINT materialCount, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList,
+        UINT maxInstanceCount = 25);
 
     // ½ûÖ¹¿½±´
     FrameResource(const FrameResource& rhs) = delete;
@@ -89,12 +93,11 @@ public:
 
     ~FrameResource();
 
-    // We cannot reset the allocator until the GPU is done processing the commands.
-    // So each frame needs their own allocator.
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> CmdListAlloc;
+    CommandListHandle Command();
 
-    // We cannot update a cbuffer until the GPU is done processing the commands
-    // that reference it.  So each frame needs their own cbuffers.
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> CmdListAlloc;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> CmdList;
+
     std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
 
     std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;

@@ -78,6 +78,9 @@
     <ClCompile Include="Shader\ShaderManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="DXRuntime\CommandListHandle.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\Camera.h">
@@ -104,7 +107,7 @@
     <ClInclude Include="Common\MathHelper.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
-    <ClInclude Include="Common\UploadBuffer.h">
+    <ClInclude Include="Resource\UploadBuffer.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\Metalib.h">
@@ -141,6 +144,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Shader\ShaderManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DXRuntime\CommandListHandle.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource\Mesh.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

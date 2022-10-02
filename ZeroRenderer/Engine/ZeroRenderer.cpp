@@ -89,13 +89,9 @@ void ZeroRenderer::Update(const GameTimer& gt)
 	UpdateShadowPassCB(gt);
 }
 
-void ZeroRenderer::Draw(const GameTimer& gt)
+void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 {
-	auto cmdListAlloc = mCurrFrameResource->CmdListAlloc;
-
-	ThrowIfFailed(cmdListAlloc->Reset());
-
-	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), psoManager->GetPipelineState("opaque")));
+	auto cmdListHandle = mCurrFrameResource->Command();
 
 	/*shadow map*/
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
@@ -147,25 +143,27 @@ void ZeroRenderer::Draw(const GameTimer& gt)
 
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
+}
 
-	// Done recording commands.
-	ThrowIfFailed(mCommandList->Close());
-
-	// Add the command list to the queue for execution.
+// Sync
+void ZeroRenderer::SubmitCommandList(const GameTimer& gt)
+{
 	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
-	// Swap the back and front buffers
 	ThrowIfFailed(mSwapChain->Present(0, 0));
 	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
 
-	// Advance the fence value to mark commands up to this fence point.
 	mCurrFrameResource->Fence = ++mCurrentFence;
 
-	// Add an instruction to the command queue to set a new fence point. 
-	// Because we are on the GPU timeline, the new fence point won't be 
-	// set until the GPU finishes processing all the commands prior to this Signal().
 	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
+}
+
+void ZeroRenderer::Draw(const GameTimer& gt)
+{
+
+	PopulateCommandList(gt);
+	SubmitCommandList(gt);
 }
 
 void ZeroRenderer::OnMouseDown(WPARAM btnState, int x, int y)
@@ -274,9 +272,9 @@ void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
 
 	mMainPassCB.Lights[0].Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
 	mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
-	//mMainPassCB.Lights[1].Direction = mRotatedLightDirections[1];
+	//mMainPassCB.Lights[1].Direction = mBaseLightDirections[1];
 	//mMainPassCB.Lights[1].Strength = { 0.4f, 0.4f, 0.4f };
-	//mMainPassCB.Lights[2].Direction = mRotatedLightDirections[2];
+	//mMainPassCB.Lights[2].Direction = mBaseLightDirections[2];
 	//mMainPassCB.Lights[2].Strength = { 0.2f, 0.2f, 0.2f };
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
@@ -597,7 +595,7 @@ void ZeroRenderer::BuildFrameResources()
 	for (int i = 0; i < gNumFrameResources; ++i)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			2, (UINT)mScene->GetRitemSize(), (UINT)matManager->GetSize()));
+			2, (UINT)mScene->GetRitemSize(), (UINT)matManager->GetSize(), mCommandList));
 	}
 }
 
@@ -649,20 +647,19 @@ void ZeroRenderer::BuildRenderItems()
 			layer              : 该 Ritem 所属的 RenderLayer
 			world              : 世界矩阵
 			TexTransform       : 纹理变换矩阵
-			ObjCBIndex         : 其在物体常量缓冲区中的索引
 			Mat                : 该 Ritem 的材质
 			Geo                : 该物体所属的 Mesh（其中包含顶点索引缓冲区和拓扑类型等，用于绘制时绑定）
 			IndexCount         : Number of indices read from the index buffer for each instance
 			StartIndexLocation : 在索引缓冲区中的 offset
 			BaseVertexLocation : 在顶点缓冲区中的 offset
 			PrimitiveType      : 该图元的拓扑类型 (默认为 TRIANGLELIST)
+		每个 RItem 的 ObjCBIndex 按顺序生成 (0, 1, 2, ...)
 	*/
 
 	mScene->CreateRenderItem(
 		RenderLayer::Sky,
 		XMMatrixScaling(5000.0f, 5000.0f, 5000.0f),
 		XMMatrixIdentity(),
-		0,
 		matManager->GetMaterial("sky"),
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
@@ -674,7 +671,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Opaque,
 		XMMatrixScaling(3.0f, 3.0f, 3.0f),
 		XMMatrixScaling(8.0f, 8.0f, 1.0f),
-		1,
 		matManager->GetMaterial("tile0"),
 		general_geo,
 		general_geo->DrawArgs["grid"].IndexCount,
@@ -686,7 +682,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Opaque,
 		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f),
 		XMMatrixIdentity(),
-		2,
 		matManager->GetMaterial("mirror0"),
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
@@ -698,7 +693,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Opaque,
 		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
 		XMMatrixIdentity(),
-		3,
 		matManager->GetMaterial("bricks0"),
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
@@ -710,7 +704,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Transparent,
 		XMMatrixScaling(4.0f, 4.0f, 4.0f)* XMMatrixTranslation(-8.0f, 6.0f, -3.0f),
 		XMMatrixIdentity(),
-		4,
 		matManager->GetMaterial("brokenGlass0"),
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
@@ -722,7 +715,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Debug,
 		XMMatrixRotationX(45.0f),
 		XMMatrixIdentity(),
-		5,
 		matManager->GetMaterial("bricks0"),
 		general_geo,
 		general_geo->DrawArgs["quad"].IndexCount,
@@ -734,7 +726,6 @@ void ZeroRenderer::BuildRenderItems()
 		RenderLayer::Opaque,
 		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
 		XMMatrixIdentity(),
-		6,
 		matManager->GetMaterial("tile0"),
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,

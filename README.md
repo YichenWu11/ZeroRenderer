@@ -10,7 +10,7 @@ A Simple Renderer Based on DirectX12
 - [x] cube mapping (sky box)
 - [x] shadow map
 - [x] normal map
-- [ ] a series of managers
+- [x] a series of managers
 - [ ] SSAO
 - [ ] quaternions
 - [ ] Deferred rendering (may be)

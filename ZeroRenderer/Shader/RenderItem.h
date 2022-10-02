@@ -1,8 +1,14 @@
 #pragma once
 
+#include <DirectXMath.h>
+
 #include "../Common/d3dUtil.h"
 #include "../Common/MathHelper.h"
-#include <DirectXMath.h>
+
+#include "../Resource/Mesh.h"
+
+#include "MatManager.h"
+
 using namespace DirectX;
 
 enum class RenderLayer : int

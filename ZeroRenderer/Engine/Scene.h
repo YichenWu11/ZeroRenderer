@@ -5,7 +5,8 @@
 //
 
 #include "../Common/d3dUtil.h"
-#include "../Common/UploadBuffer.h"
+
+#include "../Resource/UploadBuffer.h"
 
 #include "../DXRuntime/FrameResource.h"
 
@@ -21,7 +22,6 @@ public:
 		RenderLayer layer,
 		XMMATRIX world,
 		XMMATRIX TexTransform,
-		UINT ObjCBIndex,
 		Material* Mat,
 		MeshGeometry* Geo,
 		UINT IndexCount,

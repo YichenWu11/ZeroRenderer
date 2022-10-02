@@ -8,7 +8,6 @@ void Scene::CreateRenderItem(
 	RenderLayer layer,
 	XMMATRIX world,
 	XMMATRIX TexTransform,
-	UINT ObjCBIndex,
 	Material* Mat,
 	MeshGeometry* Geo,
 	UINT IndexCount,
@@ -19,7 +18,7 @@ void Scene::CreateRenderItem(
 	auto item = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&item->World,        world);
 	XMStoreFloat4x4(&item->TexTransform, TexTransform);
-	item->ObjCBIndex = ObjCBIndex;
+	item->ObjCBIndex = (UINT)GetRitemSize();
 	item->Mat = Mat;
 	item->Geo = Geo;
 	item->IndexCount = IndexCount;
