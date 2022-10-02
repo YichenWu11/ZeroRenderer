@@ -45,7 +45,6 @@ class MatManager : public PublicSingleton<MatManager>
 {
 public:
 	MatManager();
-
 	~MatManager();
 
 	void CreateMaterial(

@@ -14,6 +14,7 @@ public:
         static T instance;
         return instance;
     }
+
     virtual ~PublicSingleton() noexcept = default;
 
     PublicSingleton(const PublicSingleton&) = delete;
