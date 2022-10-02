@@ -2,6 +2,8 @@
 
 A Simple Renderer Based on DirectX12
 
+*从零开始的渲染生活*
+
 ---
 
 ## TODOS
