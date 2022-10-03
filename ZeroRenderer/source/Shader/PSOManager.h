@@ -10,7 +10,7 @@
 
 using Microsoft::WRL::ComPtr;
 
-class PSOManager : public PublicSingleton<PSOManager>
+class PSOManager
 {
 public:
 	PSOManager(

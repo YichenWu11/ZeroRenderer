@@ -1,4 +1,13 @@
-// 边缘保留模糊 ---> bilateral blur
+//=============================================================================
+// SsaoBlur.hlsl by Frank Luna (C) 2015 All Rights Reserved.
+//
+// Performs a bilateral edge preserving blur of the ambient map.  We use 
+// a pixel shader instead of compute shader to avoid the switch from 
+// compute mode to rendering mode.  The texture cache makes up for some of the
+// loss of not having shared memory.  The ambient map uses 16-bit texture
+// format, which is small, so we should be able to fit a lot of texels
+// in the cache.
+//=============================================================================
 
 cbuffer cbSsao : register(b0)
 {
@@ -36,7 +45,7 @@ SamplerState gsamLinearClamp : register(s1);
 SamplerState gsamDepthMap : register(s2);
 SamplerState gsamLinearWrap : register(s3);
 
-static const int gBlurRadius = 5;  // 模糊半径
+static const int gBlurRadius = 5;
  
 static const float2 gTexCoords[6] =
 {
@@ -114,9 +123,9 @@ float4 PS(VertexOut pin) : SV_Target
             gDepthMap.SampleLevel(gsamDepthMap, tex, 0.0f).r);
 
 		//
-		// 如果中心值与邻近数值相差太大(不论是法线还是深度值)
-        // 就假设正在采集的部分是不连续的(即处于物体边缘)
-        // 继而不对这种样本进行模糊操作
+		// If the center value and neighbor values differ too much (either in 
+		// normal or depth), then we assume we are sampling across a discontinuity.
+		// We discard such samples from the blur.
 		//
 	
 		if( dot(neighborNormal, centerNormal) >= 0.8f &&

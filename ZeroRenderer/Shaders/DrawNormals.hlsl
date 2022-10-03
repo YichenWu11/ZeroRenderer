@@ -65,7 +65,7 @@ float4 PS(VertexOut pin) : SV_Target
 	uint normalMapIndex = matData.NormalMapIndex;
 	
     // Dynamically look up the texture in the array.
-    diffuseAlbedo *= gTextureMap[diffuseMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
+    diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
 
 #ifdef ALPHA_TEST
     // Discard pixel if texture alpha < 0.1.  We do this test as soon 
@@ -77,9 +77,11 @@ float4 PS(VertexOut pin) : SV_Target
 	// Interpolating normal can unnormalize it, so renormalize it.
     pin.NormalW = normalize(pin.NormalW);
 	
-    // NOTE: We use interpolated vertex normal for SSAO.
+    // 为了SSAO而使用插值顶点法线
 
     // Write normal in view space coordinates
     float3 normalV = mul(pin.NormalW, (float3x3)gView);
     return float4(normalV, 0.0f);
 }
+
+
