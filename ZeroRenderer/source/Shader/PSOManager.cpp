@@ -50,7 +50,7 @@ PSOManager::PSOManager(
     // PSO for Transparent
     //
     D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
-    transparentPsoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    transparentPsoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     transparentPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
     D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;

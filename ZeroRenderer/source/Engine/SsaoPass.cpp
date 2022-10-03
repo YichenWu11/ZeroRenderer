@@ -64,7 +64,7 @@ void SsaoPass::DrawNormalsAndDepth(
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("drawNormals"));
 
 	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque), mCurrFrameResource);
-	//DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
+	//DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent), mCurrFrameResource);
 
 	// Change back to GENERIC_READ so we can read the texture in a shader.
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(normalMap,
