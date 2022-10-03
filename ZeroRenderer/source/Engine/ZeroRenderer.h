@@ -20,6 +20,8 @@
 #include "../Shader/ShaderManager.h"
 
 #include "Scene.h"
+#include "ShadowPass.h"
+#include "SsaoPass.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -49,10 +51,7 @@ private:
     void AnimateMaterials(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
     void UpdateMaterialBuffer(const GameTimer& gt);
-    void UpdateShadowTransform(const GameTimer& gt);
     void UpdateMainPassCB(const GameTimer& gt);
-    void UpdateShadowPassCB(const GameTimer& gt);
-    void UpdateSsaoCB(const GameTimer& gt);
 
     void LoadTextures();
     void BuildRootSignature();
@@ -63,9 +62,6 @@ private:
     void BuildMaterials();
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
-
-    void DrawSceneToShadowMap();
-    void DrawNormalsAndDepth();
 
     void PopulateCommandList(const GameTimer& gt);
     void SubmitCommandList(const GameTimer& gt);
@@ -94,7 +90,6 @@ private:
     std::unique_ptr<ShaderManager> shaderManager;
 
     PassConstants mMainPassCB;      // index 0 of pass cbuffer.
-    PassConstants mShadowPassCB;    // index 1 of pass cbuffer.
 
     UINT mSkyTexHeapIndex = 0;      // skybox index in srv heap
     UINT mShadowMapHeapIndex = 0;
@@ -112,24 +107,6 @@ private:
 
     POINT mLastMousePos;
 
-    std::unique_ptr<ShadowMap> mShadowMap;
-
-    std::unique_ptr<Ssao> mSsao;
-
-    DirectX::BoundingSphere mSceneBounds;
-
-    float mLightNearZ = 0.0f;
-    float mLightFarZ = 0.0f;
-    XMFLOAT3 mLightPosW;
-    XMFLOAT4X4 mLightView = MathHelper::Identity4x4();
-    XMFLOAT4X4 mLightProj = MathHelper::Identity4x4();
-    XMFLOAT4X4 mShadowTransform = MathHelper::Identity4x4();
-
-    float mLightRotationAngle = 0.0f;
-    XMFLOAT3 mBaseLightDirections[3] = {
-        XMFLOAT3(0.57735f, -0.57735f, 0.57735f),
-        XMFLOAT3(-0.57735f, -0.57735f, 0.57735f),
-        XMFLOAT3(0.0f, -0.707f, -0.707f)
-    };
-    XMFLOAT3 mRotatedLightDirections[3];
+    std::unique_ptr<ShadowPass> shadowPass;
+    std::unique_ptr<SsaoPass> ssaoPass;
 };

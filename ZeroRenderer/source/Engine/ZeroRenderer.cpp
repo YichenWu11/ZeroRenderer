@@ -2,16 +2,17 @@
 
 const int gNumFrameResources = 3;
 
-ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) 
+ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance)
 {
-	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	mSceneBounds.Radius = sqrtf(37.0f * 37.0f + 37.0f * 37.0f);
+
 }
 
 ZeroRenderer::~ZeroRenderer() {}
 
 bool ZeroRenderer::Initialize()
 {
+	ssaoPass = nullptr;
+
 	if (!D3DApp::Initialize()) return false;
 
 	// Reset the command list to prepare for initialization commands.
@@ -20,14 +21,15 @@ bool ZeroRenderer::Initialize()
 	// set camera position
 	mCamera.SetPosition(0.0f, 4.0f, -15.0f);
 
-	// create the shadow map
-	mShadowMap = std::make_unique<ShadowMap>(md3dDevice.Get(), 4096, 4096);
-
-	mSsao      = std::make_unique<Ssao>(md3dDevice.Get(), mCommandList.Get(), mClientWidth, mClientHeight);
-
 	matManager = std::make_unique<MatManager>();
 
 	mScene     = std::make_unique<Scene>();
+
+	// RenderPass
+	shadowPass = std::make_unique<ShadowPass>(md3dDevice.Get());
+
+	ssaoPass = std::make_unique<SsaoPass>(md3dDevice.Get(), mCommandList.Get(),
+		mClientWidth, mClientHeight, mScreenViewport, mScissorRect, DepthStencilView());
 
 	LoadTextures();
 	BuildRootSignature();
@@ -45,7 +47,7 @@ bool ZeroRenderer::Initialize()
 		md3dDevice.Get(), shaderManager->mInputLayout, mRootSignature, mSsaoRootSignature,
 		shaderManager->mShaders, mBackBufferFormat, mDepthStencilFormat);
 
-	mSsao->SetPSOs(psoManager->GetPipelineState("ssao"), psoManager->GetPipelineState("ssaoBlur"));
+	ssaoPass->GetSsao()->SetPSOs(psoManager->GetPipelineState("ssao"), psoManager->GetPipelineState("ssaoBlur"));
 
 	// Execute the initialization commands.
 	ThrowIfFailed(mCommandList->Close());
@@ -64,12 +66,14 @@ void ZeroRenderer::OnResize()
 
 	mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
 
-	if (mSsao != nullptr)
+	if (ssaoPass != nullptr && ssaoPass->GetSsao() != nullptr)
 	{
-		mSsao->OnResize(mClientWidth, mClientHeight);
+		ssaoPass->GetSsao()->OnResize(mClientWidth, mClientHeight);
 
 		// Resources changed, so need to rebuild descriptors.
-		mSsao->RebuildDescriptors(mDepthStencilBuffer.Get());
+		ssaoPass->GetSsao()->RebuildDescriptors(mDepthStencilBuffer.Get());
+
+		OutputDebugString(L"RESIZE");
 	}
 }
 
@@ -97,10 +101,9 @@ void ZeroRenderer::Update(const GameTimer& gt)
 	AnimateMaterials(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
-	UpdateShadowTransform(gt);
 	UpdateMainPassCB(gt);
-	UpdateShadowPassCB(gt);
-	UpdateSsaoCB(gt);
+	shadowPass->Update(mCurrFrameResource, mCamera);
+	ssaoPass->Update(mCurrFrameResource, mCamera);
 }
 
 void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
@@ -110,37 +113,18 @@ void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
+	//************************ Render Pass *******************************
+
+	shadowPass->Render(
+		mCommandList, mCurrFrameResource, mSrvDescriptorHeap,
+		mNullSrv, mRootSignature, psoManager.get(), mScene.get());
+
+	ssaoPass->Render(
+		mCommandList, mCurrFrameResource, mSrvDescriptorHeap,
+		mNullSrv, mSsaoRootSignature, psoManager.get(), mScene.get());
 
 	//
-	// Shadow map pass.
-	//
-
-	auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
-	mCommandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
-
-	// Bind null SRV for shadow map pass.
-	mCommandList->SetGraphicsRootDescriptorTable(3, mNullSrv);
-
-	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
-	DrawSceneToShadowMap();
-
-	//
-	// Normal/depth pass.
-	//
-
-	DrawNormalsAndDepth();
-
-	//
-	// Compute SSAO.
-	// 
-
-	mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
-	mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
-
-	//
-	// Main rendering pass.
+	// Main Render pass.
 	//
 
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
@@ -149,7 +133,7 @@ void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 
 	// Bind all the materials used in this scene.  For structured buffers, we can bypass the heap and 
 	// set as a root descriptor.
-	matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
+	auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
 	mCommandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 
 
@@ -270,16 +254,16 @@ void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 		mCamera.Strafe(10.0f * dt);
 
 	if (GetAsyncKeyState('I') & 0x8000)
-		mBaseLightDirections[0].z += 1.0f * dt;
+		shadowPass->mBaseLightDirections[0].z += 1.0f * dt;
 
 	if (GetAsyncKeyState('K') & 0x8000)
-		mBaseLightDirections[0].z -= 1.0f * dt;
+		shadowPass->mBaseLightDirections[0].z -= 1.0f * dt;
 
 	if (GetAsyncKeyState('J') & 0x8000)
-		mBaseLightDirections[0].x += 1.0f * dt;
+		shadowPass->mBaseLightDirections[0].x += 1.0f * dt;
 
 	if (GetAsyncKeyState('L') & 0x8000)
-		mBaseLightDirections[0].x -= 1.0f * dt;
+		shadowPass->mBaseLightDirections[0].x -= 1.0f * dt;
 
 	mCamera.UpdateViewMatrix();
 }
@@ -323,7 +307,7 @@ void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
 		0.5f, 0.5f, 0.0f, 1.0f);
 
 	XMMATRIX viewProjTex = XMMatrixMultiply(viewProj, T);
-	XMMATRIX shadowTransform = XMLoadFloat4x4(&mShadowTransform);
+	XMMATRIX shadowTransform = XMLoadFloat4x4(get_rvalue_ptr((shadowPass->GetShadowTransform())));
 
 	XMStoreFloat4x4(&mMainPassCB.View, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&mMainPassCB.InvView, XMMatrixTranspose(invView));
@@ -341,15 +325,17 @@ void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.TotalTime = gt.TotalTime();
 	mMainPassCB.DeltaTime = gt.DeltaTime();
 	mMainPassCB.AmbientLight = { 0.4f, 0.4f, 0.6f, 1.0f };
-	mMainPassCB.Lights[0].Direction = mBaseLightDirections[0];
+	mMainPassCB.Lights[0].Direction = shadowPass->mBaseLightDirections[0];
 	mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
-	mMainPassCB.Lights[1].Direction = mBaseLightDirections[1];
+	mMainPassCB.Lights[1].Direction = shadowPass->mBaseLightDirections[1];
 	mMainPassCB.Lights[1].Strength = { 0.1f, 0.1f, 0.1f };
-	mMainPassCB.Lights[2].Direction = mBaseLightDirections[2];
+	mMainPassCB.Lights[2].Direction = shadowPass->mBaseLightDirections[2];
 	mMainPassCB.Lights[2].Strength = { 0.0f, 0.0f, 0.0f };
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
+
+	ssaoPass->mMainPassCB = mMainPassCB;
 }
 
 void ZeroRenderer::LoadTextures()
@@ -577,12 +563,12 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	nullSrv.Offset(1, mCbvSrvUavDescriptorSize);
 	md3dDevice->CreateShaderResourceView(nullptr, &srvDesc, nullSrv);
 
-	mShadowMap->BuildDescriptors(
+	shadowPass->GetShadowMap()->BuildDescriptors(
 		GetCpuSrv(mShadowMapHeapIndex),
 		GetGpuSrv(mShadowMapHeapIndex),
 		GetDsv(1));
 
-	mSsao->BuildDescriptors(
+	ssaoPass->GetSsao()->BuildDescriptors(
 		mDepthStencilBuffer.Get(),
 		GetCpuSrv(mSsaoHeapIndexStart),
 		GetGpuSrv(mSsaoHeapIndexStart),
@@ -884,181 +870,6 @@ void ZeroRenderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std
 
 		cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
 	}
-}
-
-void ZeroRenderer::DrawSceneToShadowMap()
-{
-	mCommandList->RSSetViewports(1, get_rvalue_ptr(mShadowMap->Viewport()));
-	mCommandList->RSSetScissorRects(1, get_rvalue_ptr(mShadowMap->ScissorRect()));
-
-	// Change to DEPTH_WRITE.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(mShadowMap->Resource(),
-		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE)));
-
-	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
-
-	// Clear the back buffer and depth buffer.
-	mCommandList->ClearDepthStencilView(mShadowMap->Dsv(),
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-	// Set null render target because we are only going to draw to
-	// depth buffer.  Setting a null render target will disable color writes.
-	mCommandList->OMSetRenderTargets(0, nullptr, false, get_rvalue_ptr(mShadowMap->Dsv()));
-
-	// Bind the pass constant buffer for the shadow map pass.
-	auto passCB = mCurrFrameResource->PassCB->Resource();
-	D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + 1 * passCBByteSize;
-	mCommandList->SetGraphicsRootConstantBufferView(1, passCBAddress);
-
-	// Note the active PSO also must specify a render target count of 0.
-	mCommandList->SetPipelineState(psoManager->GetPipelineState("shadow_opaque"));
-
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
-
-	// Change back to GENERIC_READ so we can read the texture in a shader.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(mShadowMap->Resource(),
-		D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ)));
-}
-
-void ZeroRenderer::DrawNormalsAndDepth()
-{
-	mCommandList->RSSetViewports(1, &mScreenViewport);
-	mCommandList->RSSetScissorRects(1, &mScissorRect);
-
-	auto normalMap = mSsao->NormalMap();
-	auto normalMapRtv = mSsao->NormalMapRtv();
-
-	// Change to RENDER_TARGET.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(normalMap,
-		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET)));
-
-	// Clear the screen normal map and depth buffer.
-	float clearValue[] = { 0.0f, 0.0f, 1.0f, 0.0f };
-	mCommandList->ClearRenderTargetView(normalMapRtv, clearValue, 0, nullptr);
-	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-	// Specify the buffers we are going to render to.
-	mCommandList->OMSetRenderTargets(1, &normalMapRtv, true, get_rvalue_ptr(DepthStencilView()));
-
-	// Bind the constant buffer for this pass.
-	auto passCB = mCurrFrameResource->PassCB->Resource();
-	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
-
-	mCommandList->SetPipelineState(psoManager->GetPipelineState("drawNormals"));
-
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
-
-	// Change back to GENERIC_READ so we can read the texture in a shader.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(normalMap,
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ)));
-}
-
-void ZeroRenderer::UpdateShadowTransform(const GameTimer& gt)
-{
-	//// Only the first "main" light casts a shadow.
-	XMVECTOR lightDir = XMLoadFloat3(&mBaseLightDirections[0]);
-	XMVECTOR lightPos = -2.0f * mSceneBounds.Radius * lightDir;
-	XMVECTOR targetPos = XMLoadFloat3(&mSceneBounds.Center);
-	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, lightUp);
-
-	XMStoreFloat3(&mLightPosW, lightPos);
-
-	// Transform bounding sphere to light space.
-	XMFLOAT3 sphereCenterLS;
-	XMStoreFloat3(&sphereCenterLS, XMVector3TransformCoord(targetPos, lightView));
-
-	// Ortho frustum in light space encloses scene.
-	float l = sphereCenterLS.x - mSceneBounds.Radius;
-	float b = sphereCenterLS.y - mSceneBounds.Radius;
-	float n = sphereCenterLS.z - mSceneBounds.Radius;
-	float r = sphereCenterLS.x + mSceneBounds.Radius;
-	float t = sphereCenterLS.y + mSceneBounds.Radius;
-	float f = sphereCenterLS.z + mSceneBounds.Radius;
-
-	mLightNearZ = n;
-	mLightFarZ = f;
-	XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
-	//XMMATRIX lightProj = XMMatrixPerspectiveLH(fabs(l - r), fabs(b - t), n, f);
-
-	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
-	XMMATRIX T(
-		0.5f, 0.0f, 0.0f, 0.0f,
-		0.0f, -0.5f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 1.0f);
-
-	XMMATRIX S = lightView * lightProj * T;
-	XMStoreFloat4x4(&mLightView, lightView);
-	XMStoreFloat4x4(&mLightProj, lightProj);
-	XMStoreFloat4x4(&mShadowTransform, S);
-}
-
-void ZeroRenderer::UpdateShadowPassCB(const GameTimer& gt)
-{
-	XMMATRIX view = XMLoadFloat4x4(&mLightView);
-	XMMATRIX proj = XMLoadFloat4x4(&mLightProj);
-
-	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
-	XMMATRIX invView = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(view)), view);
-	XMMATRIX invProj = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(proj)), proj);
-	XMMATRIX invViewProj = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(viewProj)), viewProj);
-
-	UINT w = mShadowMap->Width();
-	UINT h = mShadowMap->Height();
-
-	XMStoreFloat4x4(&mShadowPassCB.View, XMMatrixTranspose(view));
-	XMStoreFloat4x4(&mShadowPassCB.InvView, XMMatrixTranspose(invView));
-	XMStoreFloat4x4(&mShadowPassCB.Proj, XMMatrixTranspose(proj));
-	XMStoreFloat4x4(&mShadowPassCB.InvProj, XMMatrixTranspose(invProj));
-	XMStoreFloat4x4(&mShadowPassCB.ViewProj, XMMatrixTranspose(viewProj));
-	XMStoreFloat4x4(&mShadowPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
-	mShadowPassCB.EyePosW = mLightPosW;
-	mShadowPassCB.RenderTargetSize = XMFLOAT2((float)w, (float)h);
-	mShadowPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / w, 1.0f / h);
-	mShadowPassCB.NearZ = mLightNearZ;
-	mShadowPassCB.FarZ = mLightFarZ;
-
-	auto currPassCB = mCurrFrameResource->PassCB.get();
-	currPassCB->CopyData(1, mShadowPassCB);
-}
-
-void ZeroRenderer::UpdateSsaoCB(const GameTimer& gt)
-{
-	SsaoConstants ssaoCB;
-
-	XMMATRIX P = mCamera.GetProj();
-
-	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
-	XMMATRIX T(
-		0.5f, 0.0f, 0.0f, 0.0f,
-		0.0f, -0.5f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 1.0f);
-
-	ssaoCB.Proj = mMainPassCB.Proj;
-	ssaoCB.InvProj = mMainPassCB.InvProj;
-	XMStoreFloat4x4(&ssaoCB.ProjTex, XMMatrixTranspose(P * T));
-
-	mSsao->GetOffsetVectors(ssaoCB.OffsetVectors);
-
-	auto blurWeights = mSsao->CalcGaussWeights(2.5f);
-	ssaoCB.BlurWeights[0] = XMFLOAT4(&blurWeights[0]);
-	ssaoCB.BlurWeights[1] = XMFLOAT4(&blurWeights[4]);
-	ssaoCB.BlurWeights[2] = XMFLOAT4(&blurWeights[8]);
-
-	ssaoCB.InvRenderTargetSize = XMFLOAT2(1.0f / mSsao->SsaoMapWidth(), 1.0f / mSsao->SsaoMapHeight());
-
-	// Coordinates given in view space.
-	ssaoCB.OcclusionRadius = 0.5f;
-	ssaoCB.OcclusionFadeStart = 0.2f;
-	ssaoCB.OcclusionFadeEnd = 1.0f;
-	ssaoCB.SurfaceEpsilon = 0.05f;
-
-	auto currSsaoCB = mCurrFrameResource->SsaoCB.get();
-	currSsaoCB->CopyData(0, ssaoCB);
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const
