@@ -6,6 +6,8 @@
 
 #include "../Common/d3dUtil.h"
 
+#include "Ssao.h"
+
 using Microsoft::WRL::ComPtr;
 
 class PSOManager : public PublicSingleton<PSOManager>
@@ -15,6 +17,7 @@ public:
 		ID3D12Device* device,
 		std::vector<D3D12_INPUT_ELEMENT_DESC>& mInputLayout,
 		ComPtr<ID3D12RootSignature> mRootSignature,
+		ComPtr<ID3D12RootSignature> mSsaoRootSignature,
 		std::unordered_map<std::string, ComPtr<ID3DBlob>>& mShaders,
 		DXGI_FORMAT mBackBufferFormat,
 		DXGI_FORMAT mDepthStencilFormat,

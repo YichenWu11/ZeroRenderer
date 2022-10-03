@@ -155,6 +155,7 @@
     <ClCompile Include="source\Engine\ZeroRenderer.cpp" />
     <ClCompile Include="source\Shader\ShaderManager.cpp" />
     <ClCompile Include="source\Shader\ShadowMap.cpp" />
+    <ClCompile Include="source\Shader\Ssao.cpp" />
     <ClCompile Include="source\Utility\public_singleton.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -189,6 +190,7 @@
     <ClInclude Include="source\Engine\ZeroRenderer.h" />
     <ClInclude Include="source\Shader\ShaderManager.h" />
     <ClInclude Include="source\Shader\ShadowMap.h" />
+    <ClInclude Include="source\Shader\Ssao.h" />
     <ClInclude Include="source\Utility\public_singleton.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,6 +1,6 @@
 # ZeroRenderer
 
-A Simple Renderer Based on DirectX12
+A Simple Renderer Based on DirectX12 (学完龙书后的练手项目)
 
 *从零开始的渲染生活*
 

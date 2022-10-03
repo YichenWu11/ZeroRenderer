@@ -102,6 +102,9 @@
     <ClCompile Include="3rdparty\imgui\imgui_widgets.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="source\Shader\Ssao.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Common\Camera.h">
@@ -198,6 +201,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="3rdparty\imgui\imstb_truetype.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Shader\Ssao.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
