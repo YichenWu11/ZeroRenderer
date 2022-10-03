@@ -29,8 +29,6 @@ VertexOut VS(VertexIn vin)
 	float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
 
 	// Always center sky about camera.
-	// 在世界坐标中，摄像机的位置相对于原点偏移了多少
-	// 天空球的坐标也随其偏移，保证相对同步
 	posW.xyz += gEyePosW;
 
 	// Set z = w so that z/w = 1 (i.e., skydome always on far plane).

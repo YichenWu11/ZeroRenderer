@@ -15,6 +15,7 @@
 #include "../Shader/PSOManager.h"
 #include "../Shader/RenderItem.h"
 #include "../Shader/ShadowMap.h"
+#include "../Shader/Ssao.h"
 #include "../Shader/MatManager.h"
 #include "../Shader/ShaderManager.h"
 
@@ -51,27 +52,35 @@ private:
     void UpdateShadowTransform(const GameTimer& gt);
     void UpdateMainPassCB(const GameTimer& gt);
     void UpdateShadowPassCB(const GameTimer& gt);
+    void UpdateSsaoCB(const GameTimer& gt);
 
     void LoadTextures();
     void BuildRootSignature();
+    void BuildSsaoRootSignature();
     void BuildDescriptorHeaps();
-    void BuildShadersAndInputLayout();
     void BuildShapeGeometry();
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
     void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+
     void DrawSceneToShadowMap();
+    void DrawNormalsAndDepth();
 
     void PopulateCommandList(const GameTimer& gt);
     void SubmitCommandList(const GameTimer& gt);
 
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetCpuSrv(int index) const;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE GetGpuSrv(int index) const;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetDsv(int index)    const;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetRtv(int index)    const;
 private:
     std::vector<std::unique_ptr<FrameResource>> mFrameResources;
     FrameResource* mCurrFrameResource = nullptr;
     int mCurrFrameResourceIndex = 0;
 
-    ComPtr<ID3D12RootSignature> mRootSignature = nullptr; 
+    ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
+    ComPtr<ID3D12RootSignature> mSsaoRootSignature = nullptr;
 
     ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 
@@ -89,9 +98,13 @@ private:
 
     UINT mSkyTexHeapIndex = 0;      // skybox index in srv heap
     UINT mShadowMapHeapIndex = 0;
+    UINT mSsaoHeapIndexStart = 0;
+    UINT mSsaoAmbientMapIndex = 0;
 
     UINT mNullCubeSrvIndex = 0;
     UINT mNullTexSrvIndex = 0;
+    UINT mNullTexSrvIndex1 = 0;
+    UINT mNullTexSrvIndex2 = 0;
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE mNullSrv;
 
@@ -102,6 +115,8 @@ private:
     bool mIsWireframe = false;
 
     std::unique_ptr<ShadowMap> mShadowMap;
+
+    std::unique_ptr<Ssao> mSsao;
 
     DirectX::BoundingSphere mSceneBounds;
 
