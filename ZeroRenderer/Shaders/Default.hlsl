@@ -117,4 +117,5 @@ float4 PS(VertexOut pin) : SV_Target
     litColor.a = saturate(diffuseAlbedo.a + 0.5);
 
     return litColor;
+    // return float4(shadowFactor.rrr, 1.0f);
 }
