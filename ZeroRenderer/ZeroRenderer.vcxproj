@@ -147,6 +147,7 @@
     <ClCompile Include="source\Common\MathHelper.cpp" />
     <ClCompile Include="source\DXRuntime\CommandListHandle.cpp" />
     <ClCompile Include="source\DXRuntime\FrameResource.cpp" />
+    <ClCompile Include="source\Engine\RenderPass.cpp" />
     <ClCompile Include="source\Engine\Scene.cpp" />
     <ClCompile Include="source\Main.cpp" />
     <ClCompile Include="source\Shader\GlobalSamplers.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="source\Common\MathHelper.h" />
     <ClInclude Include="source\Common\Metalib.h" />
     <ClInclude Include="source\DXRuntime\CommandListHandle.h" />
+    <ClInclude Include="source\Engine\RenderPass.h" />
     <ClInclude Include="source\Resource\Mesh.h" />
     <ClInclude Include="source\Resource\ReadbackBuffer.h" />
     <ClInclude Include="source\Resource\UploadBuffer.h" />

@@ -1,15 +1,7 @@
-//***************************************************************************************
-// Ssao.h by Frank Luna (C) 2015 All Rights Reserved.
-//***************************************************************************************
-
-#ifndef SSAO_H
-#define SSAO_H
-
 #pragma once
 
 #include "../Common/d3dUtil.h"
 #include "../DXRuntime/FrameResource.h"
- 
  
 class Ssao
 {
@@ -127,5 +119,3 @@ private:
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;
 };
-
-#endif // SSAO_H

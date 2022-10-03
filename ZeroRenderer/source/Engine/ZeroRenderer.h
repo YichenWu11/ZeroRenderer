@@ -112,8 +112,6 @@ private:
 
     POINT mLastMousePos;
 
-    bool mIsWireframe = false;
-
     std::unique_ptr<ShadowMap> mShadowMap;
 
     std::unique_ptr<Ssao> mSsao;

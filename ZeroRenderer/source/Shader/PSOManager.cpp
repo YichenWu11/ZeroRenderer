@@ -53,18 +53,6 @@ PSOManager::PSOManager(
 
     transparentPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-    transparentPsoDesc.VS =
-    {
-        reinterpret_cast<BYTE*>(mShaders["transVS"]->GetBufferPointer()),
-        mShaders["transVS"]->GetBufferSize()
-    };
-
-    transparentPsoDesc.PS =
-    {
-        reinterpret_cast<BYTE*>(mShaders["transPS"]->GetBufferPointer()),
-        mShaders["transPS"]->GetBufferSize()
-    };
-
     D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
     transparencyBlendDesc.BlendEnable = true;
     transparencyBlendDesc.LogicOpEnable = false;
@@ -104,7 +92,7 @@ PSOManager::PSOManager(
 
     // Shadow map pass does not have a render target.
     smapPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
-    smapPsoDesc.NumRenderTargets = 0;
+    smapPsoDesc.NumRenderTargets = 0;  // 0 ---> ²»äÖÈ¾
     ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&smapPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
 
     //

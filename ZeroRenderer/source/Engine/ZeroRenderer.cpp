@@ -1,6 +1,6 @@
 #include "ZeroRenderer.h"
 
-const int gNumFrameResources = 3; // ÈýÖØ»º³å
+const int gNumFrameResources = 3;
 
 ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) 
 {
@@ -18,13 +18,12 @@ bool ZeroRenderer::Initialize()
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	// set camera position
-	mCamera.SetPosition(0.0f, 2.0f, -15.0f);
+	mCamera.SetPosition(0.0f, 4.0f, -15.0f);
 
 	// create the shadow map
 	mShadowMap = std::make_unique<ShadowMap>(md3dDevice.Get(), 4096, 4096);
 
-	mSsao      = std::make_unique<Ssao>(md3dDevice.Get(), mCommandList.Get(), 
-		mClientWidth, mClientHeight);
+	mSsao      = std::make_unique<Ssao>(md3dDevice.Get(), mCommandList.Get(), mClientWidth, mClientHeight);
 
 	matManager = std::make_unique<MatManager>();
 
@@ -117,17 +116,12 @@ void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 	// Shadow map pass.
 	//
 
-	// Bind all the materials used in this scene.  For structured buffers, we can bypass the heap and 
-	// set as a root descriptor.
 	auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
 	mCommandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 
 	// Bind null SRV for shadow map pass.
 	mCommandList->SetGraphicsRootDescriptorTable(3, mNullSrv);
 
-	// Bind all the textures used in this scene.  Observe
-	// that we only have to specify the first descriptor in the table.  
-	// The root signature knows how many descriptors are expected in the table.
 	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	DrawSceneToShadowMap();
@@ -272,12 +266,20 @@ void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 		mCamera.Strafe(-10.0f * dt);
 
 	if (GetAsyncKeyState('D') & 0x8000)
+
 		mCamera.Strafe(10.0f * dt);
 
-	if (GetAsyncKeyState('1') & 0x8000)
-		mIsWireframe = true;
-	else
-		mIsWireframe = false;
+	if (GetAsyncKeyState('I') & 0x8000)
+		mBaseLightDirections[0].z += 1.0f * dt;
+
+	if (GetAsyncKeyState('K') & 0x8000)
+		mBaseLightDirections[0].z -= 1.0f * dt;
+
+	if (GetAsyncKeyState('J') & 0x8000)
+		mBaseLightDirections[0].x += 1.0f * dt;
+
+	if (GetAsyncKeyState('L') & 0x8000)
+		mBaseLightDirections[0].x -= 1.0f * dt;
 
 	mCamera.UpdateViewMatrix();
 }
@@ -339,12 +341,12 @@ void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.TotalTime = gt.TotalTime();
 	mMainPassCB.DeltaTime = gt.DeltaTime();
 	mMainPassCB.AmbientLight = { 0.4f, 0.4f, 0.6f, 1.0f };
-	mMainPassCB.Lights[0].Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
+	mMainPassCB.Lights[0].Direction = mBaseLightDirections[0];
 	mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
-	//mMainPassCB.Lights[1].Direction = mRotatedLightDirections[1];
-	//mMainPassCB.Lights[1].Strength = { 0.1f, 0.1f, 0.1f };
-	//mMainPassCB.Lights[2].Direction = mRotatedLightDirections[2];
-	//mMainPassCB.Lights[2].Strength = { 0.0f, 0.0f, 0.0f };
+	mMainPassCB.Lights[1].Direction = mBaseLightDirections[1];
+	mMainPassCB.Lights[1].Strength = { 0.1f, 0.1f, 0.1f };
+	mMainPassCB.Lights[2].Direction = mBaseLightDirections[2];
+	mMainPassCB.Lights[2].Strength = { 0.0f, 0.0f, 0.0f };
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
@@ -454,42 +456,7 @@ void ZeroRenderer::BuildSsaoRootSignature()
 	slotRootParameter[2].InitAsDescriptorTable(1, &texTable0, D3D12_SHADER_VISIBILITY_PIXEL);
 	slotRootParameter[3].InitAsDescriptorTable(1, &texTable1, D3D12_SHADER_VISIBILITY_PIXEL);
 
-	const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
-		0, // shaderRegister
-		D3D12_FILTER_MIN_MAG_MIP_POINT, // filter
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
-
-	const CD3DX12_STATIC_SAMPLER_DESC linearClamp(
-		1, // shaderRegister
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
-		D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
-
-	const CD3DX12_STATIC_SAMPLER_DESC depthMapSam(
-		2, // shaderRegister
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
-		D3D12_TEXTURE_ADDRESS_MODE_BORDER,  // addressU
-		D3D12_TEXTURE_ADDRESS_MODE_BORDER,  // addressV
-		D3D12_TEXTURE_ADDRESS_MODE_BORDER,  // addressW
-		0.0f,
-		0,
-		D3D12_COMPARISON_FUNC_LESS_EQUAL,
-		D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE);
-
-	const CD3DX12_STATIC_SAMPLER_DESC linearWrap(
-		3, // shaderRegister
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
-
-	std::array<CD3DX12_STATIC_SAMPLER_DESC, 4> staticSamplers =
-	{
-		pointClamp, linearClamp, depthMapSam, linearWrap
-	};
+	auto staticSamplers = GlobalSamplers::GetSsaoSamplers();
 
 	// A root signature is an array of root parameters.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter,
@@ -936,7 +903,6 @@ void ZeroRenderer::DrawSceneToShadowMap()
 
 	// Set null render target because we are only going to draw to
 	// depth buffer.  Setting a null render target will disable color writes.
-	// Note the active PSO also must specify a render target count of 0.
 	mCommandList->OMSetRenderTargets(0, nullptr, false, get_rvalue_ptr(mShadowMap->Dsv()));
 
 	// Bind the pass constant buffer for the shadow map pass.
@@ -944,11 +910,10 @@ void ZeroRenderer::DrawSceneToShadowMap()
 	D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + 1 * passCBByteSize;
 	mCommandList->SetGraphicsRootConstantBufferView(1, passCBAddress);
 
+	// Note the active PSO also must specify a render target count of 0.
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("shadow_opaque"));
 
 	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
-
-	//mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
 	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
 
 	// Change back to GENERIC_READ so we can read the texture in a shader.
@@ -993,8 +958,7 @@ void ZeroRenderer::DrawNormalsAndDepth()
 void ZeroRenderer::UpdateShadowTransform(const GameTimer& gt)
 {
 	//// Only the first "main" light casts a shadow.
-	XMFLOAT3 dir(0.57735f, -0.57735f, 0.57735f);
-	XMVECTOR lightDir = XMLoadFloat3(&dir);
+	XMVECTOR lightDir = XMLoadFloat3(&mBaseLightDirections[0]);
 	XMVECTOR lightPos = -2.0f * mSceneBounds.Radius * lightDir;
 	XMVECTOR targetPos = XMLoadFloat3(&mSceneBounds.Center);
 	XMVECTOR lightUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);

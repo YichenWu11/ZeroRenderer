@@ -11,9 +11,6 @@ ShaderManager::ShaderManager()
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["opaquePS"] = d3dUtil::CompileShader(L"shaders\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
-	mShaders["transVS"] = d3dUtil::CompileShader(L"shaders\\TransDefault.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["transPS"] = d3dUtil::CompileShader(L"shaders\\TransDefault.hlsl", nullptr, "PS", "ps_5_1");
-
 	mShaders["shadowVS"] = d3dUtil::CompileShader(L"shaders\\Shadows.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["shadowOpaquePS"] = d3dUtil::CompileShader(L"shaders\\Shadows.hlsl", nullptr, "PS", "ps_5_1");
 
