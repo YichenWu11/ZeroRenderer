@@ -11,7 +11,7 @@ A Simple Renderer Based on DirectX12 (学完龙书后的练手项目)
 - [x] shadow map
 - [x] normal map
 - [x] a series of managers
-- [ ] SSAO
+- [x] SSAO
 - [ ] quaternions
 - [ ] Deferred rendering (may be)
 - [ ] Forward+ rendering
