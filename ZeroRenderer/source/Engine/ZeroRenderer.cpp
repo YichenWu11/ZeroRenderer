@@ -289,7 +289,10 @@ void ZeroRenderer::LoadTextures()
 		"bricksNormalMap",
 
 		"brokenGlassDiffuseMap",
+
 		"tileDiffuseMap",
+		"tileNormalMap",
+
 		"defaultDiffuseMap",
 		"skyCubeMap",
 	};
@@ -300,7 +303,10 @@ void ZeroRenderer::LoadTextures()
 		L"asset\\bricks2_nmap.dds",
 
 		L"asset\\BrokenGlass.dds",
+
 		L"asset\\tile.dds",
+		L"asset\\tile_nmap.dds",
+
 		L"asset\\white1x1.dds",
 		L"asset\\snowcube1024.dds",
 	};
@@ -401,6 +407,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 		mTextures["bricksDiffuseMap"]->Resource,
 		mTextures["bricksNormalMap"]->Resource,
 		mTextures["tileDiffuseMap"]->Resource,
+		mTextures["tileNormalMap"]->Resource,
 		mTextures["defaultDiffuseMap"]->Resource,
 		mTextures["brokenGlassDiffuseMap"]->Resource,
 	};
@@ -620,20 +627,20 @@ void ZeroRenderer::BuildMaterials()
 	matManager->CreateMaterial("tile0", 
 		1, 2, 
 		XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f), 
-		XMFLOAT3(0.2f, 0.2f, 0.2f), 0.1f);
+		XMFLOAT3(0.2f, 0.2f, 0.2f), 0.1f, 3);
 
 	matManager->CreateMaterial("mirror0",
-		2, 3,
+		2, 4,
 		XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f),
 		XMFLOAT3(0.98f, 0.97f, 0.95f), 0.1f);
 
 	matManager->CreateMaterial("brokenGlass0",
-		3, 4,
+		3, 5,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
-		XMFLOAT3(0.727811f, 0.626959f, 0.626959f), 1.0f - 0.088f);
+		XMFLOAT3(0.727811f, 0.626959f, 0.626959f), 0.9f);
 
 	matManager->CreateMaterial("sky",
-		5, 5,
+		5, 7,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
 		XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
 }
