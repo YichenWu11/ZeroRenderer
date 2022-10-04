@@ -61,7 +61,6 @@ private:
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
-    void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 
     void PopulateCommandList(const GameTimer& gt);
     void SubmitCommandList(const GameTimer& gt);
