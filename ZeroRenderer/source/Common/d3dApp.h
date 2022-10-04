@@ -35,7 +35,7 @@ public:
     bool Get4xMsaaState()const;
     void Set4xMsaaState(bool value);
 
-	int Run();
+	virtual int Run();
  
     virtual bool Initialize();
     virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -121,7 +121,7 @@ protected:
 	D3D_DRIVER_TYPE md3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
     DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	int mClientWidth = 1200;
-	int mClientHeight = 750;
+	int mClientWidth = 800;
+	int mClientHeight = 600;
 };
 

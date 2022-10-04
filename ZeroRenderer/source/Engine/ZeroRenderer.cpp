@@ -2,7 +2,9 @@
 
 const int gNumFrameResources = 3;
 
-ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) {}
+ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) 
+{
+}
 
 ZeroRenderer::~ZeroRenderer() {}
 
@@ -744,6 +746,41 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["sphere"].StartIndexLocation,
 		general_geo->DrawArgs["sphere"].BaseVertexLocation
 	);
+}
+
+int ZeroRenderer::Run()
+{
+	MSG msg = { 0 };
+
+	mTimer.Reset();
+
+	while (msg.message != WM_QUIT)
+	{
+		// If there are Window messages then process them.
+		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		// Otherwise, do animation/game stuff.
+		else
+		{
+			mTimer.Tick();
+
+			if (!mAppPaused)
+			{
+				CalculateFrameStats();
+				Update(mTimer);
+				Draw(mTimer);
+			}
+			else
+			{
+				Sleep(100);
+			}
+		}
+	}
+
+	return (int)msg.wParam;
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const

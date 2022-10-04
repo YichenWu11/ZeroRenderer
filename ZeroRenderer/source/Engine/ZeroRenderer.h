@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../../3rdparty/imgui/imgui.h"
+#include "../../3rdparty/imgui/imgui_impl_dx12.h"
+
 #include "../Common/d3dApp.h"
 #include "../Common/MathHelper.h"
 #include "../Common/Camera.h"
@@ -37,6 +40,7 @@ public:
     ~ZeroRenderer();
 
     virtual bool Initialize() override;
+    virtual int Run() override;
 
 private:
     virtual void OnResize() override;
