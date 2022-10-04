@@ -138,6 +138,7 @@
     <ClCompile Include="3rdparty\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="3rdparty\imgui\imgui_tables.cpp" />
     <ClCompile Include="3rdparty\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="source\Engine\MainPass.cpp" />
     <ClCompile Include="source\Engine\ShadowPass.cpp" />
     <ClCompile Include="source\Common\Camera.cpp" />
     <ClCompile Include="source\Common\d3dApp.cpp" />
@@ -169,6 +170,7 @@
     <ClInclude Include="3rdparty\imgui\imstb_rectpack.h" />
     <ClInclude Include="3rdparty\imgui\imstb_textedit.h" />
     <ClInclude Include="3rdparty\imgui\imstb_truetype.h" />
+    <ClInclude Include="source\Engine\MainPass.h" />
     <ClInclude Include="source\Engine\ShadowPass.h" />
     <ClInclude Include="source\Common\Camera.h" />
     <ClInclude Include="source\Common\d3dApp.h" />

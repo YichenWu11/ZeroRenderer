@@ -39,4 +39,5 @@ private:
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
 
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
+
 };

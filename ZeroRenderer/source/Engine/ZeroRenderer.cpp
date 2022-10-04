@@ -35,6 +35,8 @@ bool ZeroRenderer::Initialize()
 	BuildRenderItems();
 	BuildFrameResources();
 
+	mainPass = std::make_unique<MainPass>(ssaoPass.get(), shadowPass.get(), mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
+
 	shaderManager = std::make_unique<ShaderManager>();
 
 	// Build PSOs
@@ -90,10 +92,20 @@ void ZeroRenderer::Update(const GameTimer& gt)
 		CloseHandle(eventHandle);
 	}
 
+	mainPass->buffer = CurrentBackBuffer();
+	mainPass->rtvHandle = CurrentBackBufferView();
+	mainPass->dsvHandle = DepthStencilView();
+	mainPass->mScreenViewport = mScreenViewport;
+	mainPass->mScissorRect = mScissorRect;
+	mainPass->mClientWidth = mClientWidth;
+	mainPass->mClientHeight = mClientHeight;
+	mainPass->TotalTime = gt.TotalTime();
+	mainPass->DeltaTime = gt.DeltaTime();
+
 	AnimateMaterials(gt);
 	UpdateObjectCBs(gt);
 	UpdateMaterialBuffer(gt);
-	UpdateMainPassCB(gt);
+	mainPass->Update(mCurrFrameResource, mCamera);
 	shadowPass->Update(mCurrFrameResource, mCamera);
 	ssaoPass->Update(mCurrFrameResource, mCamera);
 }
@@ -115,57 +127,9 @@ void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 		mCommandList, mCurrFrameResource, mSrvDescriptorHeap,
 		mNullSrv, mSsaoRootSignature, psoManager.get(), mScene.get());
 
-	//
-	// Main Render pass.
-	//
-
-	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-
-	// Rebind state whenever graphics root signature changes.
-
-	// Bind all the materials used in this scene.  For structured buffers, we can bypass the heap and 
-	// set as a root descriptor.
-	auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
-	mCommandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
-
-
-	mCommandList->RSSetViewports(1, &mScreenViewport);
-	mCommandList->RSSetScissorRects(1, &mScissorRect);
-
-	// Indicate a state transition on the resource usage.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)));
-
-	// Clear the back buffer.
-	mCommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
-
-	// WE ALREADY WROTE THE DEPTH INFO TO THE DEPTH BUFFER IN DrawNormalsAndDepth,
-	// SO DO NOT CLEAR DEPTH.
-
-	// Specify the buffers we are going to render to.
-	mCommandList->OMSetRenderTargets(1, get_rvalue_ptr(CurrentBackBufferView()), true, get_rvalue_ptr(DepthStencilView()));
-
-	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
-	auto passCB = mCurrFrameResource->PassCB->Resource();
-	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
-
-	CD3DX12_GPU_DESCRIPTOR_HANDLE skyTexDescriptor(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	skyTexDescriptor.Offset(mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
-	mCommandList->SetGraphicsRootDescriptorTable(3, skyTexDescriptor);
-
-	mCommandList->SetPipelineState(psoManager->GetPipelineState("opaque"));
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Opaque));
-
-	mCommandList->SetPipelineState(psoManager->GetPipelineState("sky"));
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Sky));
-
-	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
-	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent));
-
-	// Indicate a state transition on the resource usage.
-	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)));
+	mainPass->Render(
+		mCommandList, mCurrFrameResource, mSrvDescriptorHeap,
+		mNullSrv, mRootSignature, psoManager.get(), mScene.get());
 }
 
 // Sync
@@ -257,7 +221,6 @@ void ZeroRenderer::AnimateMaterials(const GameTimer& gt)
 
 }
 
-// 更新物体常量缓冲区
 void ZeroRenderer::UpdateObjectCBs(const GameTimer& gt)
 {
 	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
@@ -270,59 +233,6 @@ void ZeroRenderer::UpdateMaterialBuffer(const GameTimer& gt)
 	auto currMaterialBuffer = mCurrFrameResource->MaterialBuffer.get();
 
 	matManager->UpdateMaterialBuffer(currMaterialBuffer);
-}
-
-// 更新渲染过程常量缓冲区(几乎每帧都要更新)
-void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
-{
-	XMMATRIX view = mCamera.GetView();
-	XMMATRIX proj = mCamera.GetProj();
-
-	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
-	XMMATRIX invView = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(view)), view);
-	XMMATRIX invProj = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(proj)), proj);
-	XMMATRIX invViewProj = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(viewProj)), viewProj);
-
-	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
-	XMMATRIX T(
-		0.5f, 0.0f, 0.0f, 0.0f,
-		0.0f, -0.5f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 1.0f);
-
-	XMMATRIX viewProjTex = XMMatrixMultiply(viewProj, T);
-	XMMATRIX shadowTransform = XMLoadFloat4x4(get_rvalue_ptr((shadowPass->GetShadowTransform())));
-
-	XMStoreFloat4x4(&mMainPassCB.View, XMMatrixTranspose(view));
-	XMStoreFloat4x4(&mMainPassCB.InvView, XMMatrixTranspose(invView));
-	XMStoreFloat4x4(&mMainPassCB.Proj, XMMatrixTranspose(proj));
-	XMStoreFloat4x4(&mMainPassCB.InvProj, XMMatrixTranspose(invProj));
-	XMStoreFloat4x4(&mMainPassCB.ViewProj, XMMatrixTranspose(viewProj));
-	XMStoreFloat4x4(&mMainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
-	XMStoreFloat4x4(&mMainPassCB.ViewProjTex, XMMatrixTranspose(viewProjTex));
-	XMStoreFloat4x4(&mMainPassCB.ShadowTransform, XMMatrixTranspose(shadowTransform));
-	mMainPassCB.EyePosW = mCamera.GetPosition3f();
-	mMainPassCB.RenderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
-	mMainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
-	mMainPassCB.NearZ = 1.0f;
-	mMainPassCB.FarZ = 1000.0f;
-	mMainPassCB.TotalTime = gt.TotalTime();
-	mMainPassCB.DeltaTime = gt.DeltaTime();
-	mMainPassCB.AmbientLight = { 0.4f, 0.4f, 0.6f, 1.0f };
-	mMainPassCB.Lights[0].Direction = shadowPass->mBaseLightDirections[0];
-	mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
-	mMainPassCB.Lights[1].Direction = shadowPass->mBaseLightDirections[1];
-	mMainPassCB.Lights[1].Strength = { 0.1f, 0.1f, 0.1f };
-	mMainPassCB.Lights[2].Direction = shadowPass->mBaseLightDirections[2];
-	mMainPassCB.Lights[2].Strength = { 0.0f, 0.0f, 0.0f };
-
-	auto currPassCB = mCurrFrameResource->PassCB.get();
-	currPassCB->CopyData(0, mMainPassCB);
-
-	// update ssaoPass
-	ssaoPass->mMainPassCB = mMainPassCB;
-	ssaoPass->mScreenViewport = mScreenViewport;
-	ssaoPass->mScissorRect = mScissorRect;
 }
 
 void ZeroRenderer::LoadTextures()

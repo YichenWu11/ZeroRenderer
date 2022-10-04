@@ -111,6 +111,9 @@
     <ClCompile Include="source\Engine\SsaoPass.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="source\Engine\MainPass.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Common\Camera.h">
@@ -219,6 +222,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="source\Engine\SsaoPass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Engine\MainPass.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

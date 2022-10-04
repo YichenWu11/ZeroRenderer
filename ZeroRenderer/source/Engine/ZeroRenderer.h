@@ -22,6 +22,7 @@
 #include "Scene.h"
 #include "ShadowPass.h"
 #include "SsaoPass.h"
+#include "MainPass.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -51,7 +52,6 @@ private:
     void AnimateMaterials(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
     void UpdateMaterialBuffer(const GameTimer& gt);
-    void UpdateMainPassCB(const GameTimer& gt);
 
     void LoadTextures();
     void BuildRootSignature();
@@ -89,8 +89,6 @@ private:
     std::unique_ptr<MatManager>    matManager;
     std::unique_ptr<ShaderManager> shaderManager;
 
-    PassConstants mMainPassCB;      // index 0 of pass cbuffer.
-
     UINT mSkyTexHeapIndex = 0;      // skybox index in srv heap
     UINT mShadowMapHeapIndex = 0;
     UINT mSsaoHeapIndexStart = 0;
@@ -108,5 +106,6 @@ private:
     POINT mLastMousePos;
 
     std::unique_ptr<ShadowPass> shadowPass;
-    std::unique_ptr<SsaoPass> ssaoPass;
+    std::unique_ptr<SsaoPass>   ssaoPass;
+    std::unique_ptr<MainPass>   mainPass;
 };
