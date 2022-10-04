@@ -184,8 +184,8 @@ void ZeroRenderer::DrawImGui()
 		auto general_geo = mGeometries["shapeGeo"].get();
 
 		static int layer = 0;
-		static XMFLOAT3 world_pos = { 0.0f, 0.0f, 0.0f };
-		static XMFLOAT3 world_scale = { 1.0f, 1.0f, 1.0f };
+		static XMFLOAT3 world_pos = { 15.0f, 6.0f, -20.0f };
+		static XMFLOAT3 world_scale = { 4.0f, 4.0f, 4.0f };
 		static char mat[20] = "tile0";
 		static char shape[20] = "sphere";
 
@@ -836,6 +836,17 @@ void ZeroRenderer::BuildRenderItems()
 	);
 
 	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
+		XMMatrixIdentity(),
+		matManager->GetMaterial("tile0"),
+		general_geo,
+		general_geo->DrawArgs["sphere"].IndexCount,
+		general_geo->DrawArgs["sphere"].StartIndexLocation,
+		general_geo->DrawArgs["sphere"].BaseVertexLocation
+	);
+
+	mScene->CreateRenderItem(
 		RenderLayer::Transparent,
 		XMMatrixScaling(4.0f, 4.0f, 4.0f)* XMMatrixTranslation(-8.0f, 6.0f, -3.0f),
 		XMMatrixIdentity(),
@@ -855,17 +866,6 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["quad"].IndexCount,
 		general_geo->DrawArgs["quad"].StartIndexLocation,
 		general_geo->DrawArgs["quad"].BaseVertexLocation
-	);
-
-	mScene->CreateRenderItem(
-		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("tile0"),
-		general_geo,
-		general_geo->DrawArgs["sphere"].IndexCount,
-		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
 	);
 }
 

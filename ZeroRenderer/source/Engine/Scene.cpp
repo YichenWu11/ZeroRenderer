@@ -32,8 +32,11 @@ void Scene::CreateRenderItem(
 
 void Scene::DeleteLastRenderItem(RenderLayer layer)
 {
-	mRitemLayer[(int)layer].pop_back();
-	mAllRitems.pop_back();
+	if (!mRitemLayer[(int)layer].empty())
+	{
+		mRitemLayer[(int)layer].pop_back();
+		mAllRitems.pop_back();
+	}
 }
 
 void Scene::UpdateObjectCBs(UploadBuffer<ObjectConstants>* currObjectCB)
