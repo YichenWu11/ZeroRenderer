@@ -2,17 +2,12 @@
 
 const int gNumFrameResources = 3;
 
-ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance)
-{
-
-}
+ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) {}
 
 ZeroRenderer::~ZeroRenderer() {}
 
 bool ZeroRenderer::Initialize()
 {
-	ssaoPass = nullptr;
-
 	if (!D3DApp::Initialize()) return false;
 
 	// Reset the command list to prepare for initialization commands.
@@ -70,10 +65,7 @@ void ZeroRenderer::OnResize()
 	{
 		ssaoPass->GetSsao()->OnResize(mClientWidth, mClientHeight);
 
-		// Resources changed, so need to rebuild descriptors.
 		ssaoPass->GetSsao()->RebuildDescriptors(mDepthStencilBuffer.Get());
-
-		OutputDebugString(L"RESIZE");
 	}
 }
 
@@ -153,18 +145,10 @@ void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 	// Specify the buffers we are going to render to.
 	mCommandList->OMSetRenderTargets(1, get_rvalue_ptr(CurrentBackBufferView()), true, get_rvalue_ptr(DepthStencilView()));
 
-	// Bind all the textures used in this scene.  Observe
-	// that we only have to specify the first descriptor in the table.  
-	// The root signature knows how many descriptors are expected in the table.
 	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	auto passCB = mCurrFrameResource->PassCB->Resource();
 	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
-
-	// Bind the sky cube map.  For our demos, we just use one "world" cube map representing the environment
-	// from far away, so all objects will use the same cube map and we only need to set it once per-frame.  
-	// If we wanted to use "local" cube maps, we would have to change them per-object, or dynamically
-	// index into an array of cube maps.
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE skyTexDescriptor(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	skyTexDescriptor.Offset(mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
@@ -335,7 +319,10 @@ void ZeroRenderer::UpdateMainPassCB(const GameTimer& gt)
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
 
+	// update ssaoPass
 	ssaoPass->mMainPassCB = mMainPassCB;
+	ssaoPass->mScreenViewport = mScreenViewport;
+	ssaoPass->mScissorRect = mScissorRect;
 }
 
 void ZeroRenderer::LoadTextures()

@@ -22,10 +22,6 @@ void SsaoPass::Render(
 	DrawNormalsAndDepth(mCommandList, mCurrFrameResource, mSrvDescriptorHeap,
 		mNullSrv, mSsaoRootSignature, psoManager, mScene);
 
-	//
-	// Compute SSAO.
-	// 
-
 	mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 	mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
 }

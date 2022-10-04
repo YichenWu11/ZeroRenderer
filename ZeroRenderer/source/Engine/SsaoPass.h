@@ -39,9 +39,10 @@ public:
 
     PassConstants mMainPassCB; // 用来接受 ZeroRenderer 类中的 MainPassCB
 
-private:
-    D3D12_VIEWPORT mScreenViewport;
-    D3D12_RECT mScissorRect;        
+    D3D12_VIEWPORT mScreenViewport; // 同 mMainPassCB
+    D3D12_RECT mScissorRect;
+
+private:   
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHeapHandle;
 
     std::unique_ptr<Ssao> mSsao;
