@@ -4,6 +4,10 @@
 #include "SsaoPass.h"
 #include "ShadowPass.h"
 
+#include "../../3rdparty/imgui/imgui.h"
+#include "../../3rdparty/imgui/imgui_impl_dx12.h"
+#include "../../3rdparty/imgui/imgui_impl_win32.h"
+
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
@@ -25,6 +29,7 @@ public:
 
     UINT mSkyTexHeapIndex;
     UINT mCbvSrvUavDescriptorSize;
+    XMFLOAT3 mainLightIntensity = { 0.9f, 0.8f, 0.7f };
 
     // 在 ZeroRenderer::Update 中更新 per frame
     D3D12_VIEWPORT mScreenViewport;

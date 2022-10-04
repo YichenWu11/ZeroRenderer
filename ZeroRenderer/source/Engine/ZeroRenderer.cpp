@@ -1,12 +1,29 @@
 #include "ZeroRenderer.h"
+#include <windowsx.h>
 
 const int gNumFrameResources = 3;
 
+const int maxObjectNum = 100;
+
 ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) 
 {
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
 }
 
-ZeroRenderer::~ZeroRenderer() {}
+ZeroRenderer::~ZeroRenderer() 
+{
+	// Cleanup
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
+}
 
 bool ZeroRenderer::Initialize()
 {
@@ -23,7 +40,7 @@ bool ZeroRenderer::Initialize()
 	mScene     = std::make_unique<Scene>();
 
 	// RenderPass
-	shadowPass = std::make_unique<ShadowPass>(md3dDevice.Get());
+	shadowPass = std::make_unique<ShadowPass>(md3dDevice.Get(), mCbvSrvUavDescriptorSize);
 
 	ssaoPass = std::make_unique<SsaoPass>(md3dDevice.Get(), mCommandList.Get(),
 		mClientWidth, mClientHeight, mScreenViewport, mScissorRect, DepthStencilView());
@@ -36,6 +53,13 @@ bool ZeroRenderer::Initialize()
 	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResources();
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplWin32_Init(mhMainWnd);
+	ImGui_ImplDX12_Init(md3dDevice.Get(), gNumFrameResources,
+		DXGI_FORMAT_R8G8B8A8_UNORM, mSrvDescriptorHeap.Get(),
+		mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+		mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	mainPass = std::make_unique<MainPass>(ssaoPass.get(), shadowPass.get(), mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
 
@@ -112,6 +136,99 @@ void ZeroRenderer::Update(const GameTimer& gt)
 	ssaoPass->Update(mCurrFrameResource, mCamera);
 }
 
+void ZeroRenderer::DrawImGui()
+{
+	static bool show_demo_window = false;
+	static bool show_style = false;
+	static bool add_render_item = true;
+
+	// Start the Dear ImGui frame
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	if (show_demo_window)
+		ImGui::ShowDemoWindow(&show_demo_window);
+
+	static float f = 0.0f;
+	static int counter = 0;
+
+	{
+		ImGui::Begin("Scene And Objects");
+
+		ImGui::Checkbox("Demo Window", &show_demo_window);
+		ImGui::Checkbox("Style Editor", &show_style);
+		ImGui::Checkbox("Add RenderItem", &add_render_item);
+
+		ImGui::Text("\nChange a float between 0.0f and 1.0f");
+		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+
+		ImGui::Text("\nChange the MainLight Intensity / Color");
+		ImGui::ColorEdit3("clear color", (float*)&(mainPass->mainLightIntensity));
+
+		ImGui::Text("\nButton");
+		if (ImGui::Button("Button"))
+			counter++;
+		ImGui::SameLine();
+		ImGui::Text("counter = %d", counter);
+
+		ImGui::Text("\nApplication average %.3f ms/frame (%.1f FPS)\n", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+		if (show_style) ImGui::ShowStyleEditor();
+
+		ImGui::End();
+	}
+
+	if (add_render_item)
+	{
+		auto general_geo = mGeometries["shapeGeo"].get();
+
+		static int layer = 0;
+		static XMFLOAT3 world_pos = { 0.0f, 0.0f, 0.0f };
+		static XMFLOAT3 world_scale = { 1.0f, 1.0f, 1.0f };
+		static char mat[20] = "tile0";
+		static char shape[20] = "sphere";
+
+		ImGui::Begin("Another Window", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+		ImGui::Text("Add RenderItem to Scene\n");
+
+		ImGui::InputInt("Render Layer", &layer);
+		ImGui::InputFloat3("world pos matrix", (float*)&(world_pos));
+		ImGui::InputFloat3("world scale matrix", (float*)&(world_scale));
+		ImGui::InputText("material", mat, IM_ARRAYSIZE(mat));
+		ImGui::InputText("shape", shape, IM_ARRAYSIZE(shape));
+
+		if (ImGui::Button("CreateItem"))
+		{
+			// 限制场景中物体数量
+			if (mScene->GetRitemSize() + 1 <= maxObjectNum)
+			{
+				auto general_geo = mGeometries["shapeGeo"].get();
+				mScene->CreateRenderItem(
+					RenderLayer(layer),
+					XMMatrixScaling(world_scale.x, world_scale.y, world_scale.z) * 
+					XMMatrixTranslation(world_pos.x, world_pos.y, world_pos.z),
+					XMMatrixIdentity(),
+					matManager->GetMaterial(mat),
+					general_geo,
+					general_geo->DrawArgs[shape].IndexCount,
+					general_geo->DrawArgs[shape].StartIndexLocation,
+					general_geo->DrawArgs[shape].BaseVertexLocation
+				);
+			}
+		}
+
+		if (ImGui::Button("DeletePastItem"))
+		{
+			mScene->DeleteLastRenderItem(RenderLayer(layer));
+		}
+
+		ImGui::End();
+	}
+
+	ImGui::Render();
+}
+
 void ZeroRenderer::PopulateCommandList(const GameTimer& gt)
 {
 	auto cmdListHandle = mCurrFrameResource->Command();
@@ -150,7 +267,7 @@ void ZeroRenderer::SubmitCommandList(const GameTimer& gt)
 
 void ZeroRenderer::Draw(const GameTimer& gt)
 {
-
+	DrawImGui();
 	PopulateCommandList(gt);
 	SubmitCommandList(gt);
 }
@@ -170,7 +287,7 @@ void ZeroRenderer::OnMouseUp(WPARAM btnState, int x, int y)
 
 void ZeroRenderer::OnMouseMove(WPARAM btnState, int x, int y)
 {
-	if ((btnState & MK_LBUTTON) != 0)
+	if ((btnState & MK_LBUTTON) != 0 && enable_camera_move)
 	{
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
@@ -188,34 +305,37 @@ void ZeroRenderer::OnMouseMove(WPARAM btnState, int x, int y)
 void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 {
 	const float dt = gt.DeltaTime();
+	
+	if (enable_camera_move)
+	{
+		// adjust the camera position
+		if (GetAsyncKeyState('W') & 0x8000)
+			mCamera.Walk(10.0f * dt);
 
-	// adjust the camera position
-	if (GetAsyncKeyState('W') & 0x8000)
-		mCamera.Walk(10.0f * dt);
+		if (GetAsyncKeyState('S') & 0x8000)
+			mCamera.Walk(-10.0f * dt);
 
-	if (GetAsyncKeyState('S') & 0x8000)
-		mCamera.Walk(-10.0f * dt);
+		if (GetAsyncKeyState('A') & 0x8000)
+			mCamera.Strafe(-10.0f * dt);
 
-	if (GetAsyncKeyState('A') & 0x8000)
-		mCamera.Strafe(-10.0f * dt);
+		if (GetAsyncKeyState('D') & 0x8000)
 
-	if (GetAsyncKeyState('D') & 0x8000)
+			mCamera.Strafe(10.0f * dt);
 
-		mCamera.Strafe(10.0f * dt);
+		if (GetAsyncKeyState('I') & 0x8000)
+			shadowPass->mBaseLightDirections[0].z += 1.0f * dt;
 
-	if (GetAsyncKeyState('I') & 0x8000)
-		shadowPass->mBaseLightDirections[0].z += 1.0f * dt;
+		if (GetAsyncKeyState('K') & 0x8000)
+			shadowPass->mBaseLightDirections[0].z -= 1.0f * dt;
 
-	if (GetAsyncKeyState('K') & 0x8000)
-		shadowPass->mBaseLightDirections[0].z -= 1.0f * dt;
+		if (GetAsyncKeyState('J') & 0x8000)
+			shadowPass->mBaseLightDirections[0].x += 1.0f * dt;
 
-	if (GetAsyncKeyState('J') & 0x8000)
-		shadowPass->mBaseLightDirections[0].x += 1.0f * dt;
+		if (GetAsyncKeyState('L') & 0x8000)
+			shadowPass->mBaseLightDirections[0].x -= 1.0f * dt;
 
-	if (GetAsyncKeyState('L') & 0x8000)
-		shadowPass->mBaseLightDirections[0].x -= 1.0f * dt;
-
-	mCamera.UpdateViewMatrix();
+		mCamera.UpdateViewMatrix();
+	}
 }
 
 void ZeroRenderer::AnimateMaterials(const GameTimer& gt)
@@ -394,7 +514,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 16;
+	srvHeapDesc.NumDescriptors = 18;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // shader_visible
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -405,6 +525,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 	std::vector<ComPtr<ID3D12Resource>> tex2DList = {
+		mTextures["bricksDiffuseMap"]->Resource,  // for imgui font
 		mTextures["bricksDiffuseMap"]->Resource,
 		mTextures["bricksNormalMap"]->Resource,
 		mTextures["tileDiffuseMap"]->Resource,
@@ -420,7 +541,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	
+
 	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
 	{
 		srvDesc.Format = tex2DList[i]->GetDesc().Format;
@@ -609,7 +730,7 @@ void ZeroRenderer::BuildFrameResources()
 	for (int i = 0; i < gNumFrameResources; ++i)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			2, (UINT)mScene->GetRitemSize(), (UINT)matManager->GetSize(), mCommandList));
+			2, (UINT)maxObjectNum, (UINT)matManager->GetSize(), mCommandList));
 	}
 }
 
@@ -627,27 +748,27 @@ void ZeroRenderer::BuildMaterials()
 	*/
 
 	matManager->CreateMaterial("bricks0", 
-		0, 0, 
+		0, 1, 
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 
-		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f, 1);  // with normal_map
+		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f, 2);  // with normal_map
 
 	matManager->CreateMaterial("tile0", 
-		1, 2, 
+		1, 3, 
 		XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f), 
-		XMFLOAT3(0.2f, 0.2f, 0.2f), 0.1f, 3);
+		XMFLOAT3(0.2f, 0.2f, 0.2f), 0.1f, 4);
 
 	matManager->CreateMaterial("mirror0",
-		2, 4,
+		2, 5,
 		XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f),
 		XMFLOAT3(0.98f, 0.97f, 0.95f), 0.1f);
 
 	matManager->CreateMaterial("brokenGlass0",
-		3, 5,
+		3, 6,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
 		XMFLOAT3(0.727811f, 0.626959f, 0.626959f), 0.9f);
 
 	matManager->CreateMaterial("sky",
-		4, 6,
+		4, 7,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
 		XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
 }
@@ -748,41 +869,6 @@ void ZeroRenderer::BuildRenderItems()
 	);
 }
 
-int ZeroRenderer::Run()
-{
-	MSG msg = { 0 };
-
-	mTimer.Reset();
-
-	while (msg.message != WM_QUIT)
-	{
-		// If there are Window messages then process them.
-		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		// Otherwise, do animation/game stuff.
-		else
-		{
-			mTimer.Tick();
-
-			if (!mAppPaused)
-			{
-				CalculateFrameStats();
-				Update(mTimer);
-				Draw(mTimer);
-			}
-			else
-			{
-				Sleep(100);
-			}
-		}
-	}
-
-	return (int)msg.wParam;
-}
-
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const
 {
 	auto srv = CD3DX12_CPU_DESCRIPTOR_HANDLE(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
@@ -809,4 +895,139 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetRtv(int index)const
 	auto rtv = CD3DX12_CPU_DESCRIPTOR_HANDLE(mRtvHeap->GetCPUDescriptorHandleForHeapStart());
 	rtv.Offset(index, mRtvDescriptorSize);
 	return rtv;
+}
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+LRESULT ZeroRenderer::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	// For ImGui
+	if (ImGui_ImplWin32_WndProcHandler(mhMainWnd, msg, wParam, lParam))
+		return true;
+
+	switch (msg)
+	{
+	case WM_ACTIVATE:
+		if (LOWORD(wParam) == WA_INACTIVE)
+		{
+			mAppPaused = true;
+			mTimer.Stop();
+		}
+		else
+		{
+			mAppPaused = false;
+			mTimer.Start();
+		}
+		return 0;
+
+	case WM_SIZE:
+		mClientWidth = LOWORD(lParam);
+		mClientHeight = HIWORD(lParam);
+		if (md3dDevice)
+		{
+			if (wParam == SIZE_MINIMIZED)
+			{
+				mAppPaused = true;
+				mMinimized = true;
+				mMaximized = false;
+			}
+			else if (wParam == SIZE_MAXIMIZED)
+			{
+				mAppPaused = false;
+				mMinimized = false;
+				mMaximized = true;
+				OnResize();
+			}
+			else if (wParam == SIZE_RESTORED)
+			{
+
+				// Restoring from minimized state?
+				if (mMinimized)
+				{
+					mAppPaused = false;
+					mMinimized = false;
+					OnResize();
+				}
+
+				// Restoring from maximized state?
+				else if (mMaximized)
+				{
+					mAppPaused = false;
+					mMaximized = false;
+					OnResize();
+				}
+				else if (mResizing)
+				{
+				}
+				else // API call such as SetWindowPos or mSwapChain->SetFullscreenState.
+				{
+					OnResize();
+				}
+			}
+		}
+		return 0;
+
+		// WM_EXITSIZEMOVE is sent when the user grabs the resize bars.
+	case WM_ENTERSIZEMOVE:
+		mAppPaused = true;
+		mResizing = true;
+		mTimer.Stop();
+		return 0;
+
+		// WM_EXITSIZEMOVE is sent when the user releases the resize bars.
+		// Here we reset everything based on the new window dimensions.
+	case WM_EXITSIZEMOVE:
+		mAppPaused = false;
+		mResizing = false;
+		mTimer.Start();
+		OnResize();
+		return 0;
+
+		// WM_DESTROY is sent when the window is being destroyed.
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		return 0;
+
+		// The WM_MENUCHAR message is sent when a menu is active and the user presses 
+		// a key that does not correspond to any mnemonic or accelerator key. 
+	case WM_MENUCHAR:
+		// Don't beep when we alt-enter.
+		return MAKELRESULT(0, MNC_CLOSE);
+
+		// Catch this message so to prevent the window from becoming too small.
+	case WM_GETMINMAXINFO:
+		((MINMAXINFO*)lParam)->ptMinTrackSize.x = 200;
+		((MINMAXINFO*)lParam)->ptMinTrackSize.y = 200;
+		return 0;
+
+	case WM_LBUTTONDOWN:
+	case WM_MBUTTONDOWN:
+	case WM_RBUTTONDOWN:
+		OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
+	case WM_LBUTTONUP:
+	case WM_MBUTTONUP:
+	case WM_RBUTTONUP:
+		OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
+	case WM_MOUSEMOVE:
+		OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
+	case WM_KEYUP:
+		if (wParam == VK_ESCAPE)
+		{
+			PostQuitMessage(0);
+			exit(0);
+		}
+		else if ((int)wParam == VK_F2)
+			Set4xMsaaState(!m4xMsaaState);
+		else if ((int)wParam == VK_SPACE)
+			//mAppPaused = !mAppPaused;  // 暂停还需要修复（暂停期间不记录鼠标位置）
+			enable_camera_move = !enable_camera_move; // 是否允许摄像机移动
+
+		return 0;
+	}
+
+	return DefWindowProc(hwnd, msg, wParam, lParam);  // Default
 }

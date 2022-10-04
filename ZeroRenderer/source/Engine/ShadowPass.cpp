@@ -1,6 +1,6 @@
 #include "ShadowPass.h"
 
-ShadowPass::ShadowPass(ID3D12Device* device)
+ShadowPass::ShadowPass(ID3D12Device* device, UINT size) : mCbvSrvUavDescriptorSize(size)
 {
 	mShadowMap = std::make_unique<ShadowMap>(device, 4096, 4096);
 	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -23,6 +23,9 @@ void ShadowPass::Render(
 
 	// Bind null SRV for shadow map pass.
 	mCommandList->SetGraphicsRootDescriptorTable(3, mNullSrv);
+
+	//CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	//hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
 
 	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 

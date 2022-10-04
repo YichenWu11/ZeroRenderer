@@ -26,7 +26,7 @@ void MainPass::Render(
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET)));
 
 	// Clear the back buffer.
-	mCommandList->ClearRenderTargetView(rtvHandle, Colors::LightSteelBlue, 0, nullptr);
+	mCommandList->ClearRenderTargetView(rtvHandle, Colors::WhiteSmoke, 0, nullptr);
 
 	// WE ALREADY WROTE THE DEPTH INFO TO THE DEPTH BUFFER IN DrawNormalsAndDepth,
 	// SO DO NOT CLEAR DEPTH.
@@ -51,6 +51,8 @@ void MainPass::Render(
 
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
 	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent), mCurrFrameResource);
+
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 
 	// Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, get_rvalue_ptr(CD3DX12_RESOURCE_BARRIER::Transition(buffer,
@@ -94,7 +96,7 @@ void MainPass::Update(FrameResource* mCurrFrameResource, Camera& mCamera)
 	mMainPassCB.DeltaTime = DeltaTime;
 	mMainPassCB.AmbientLight = { 0.4f, 0.4f, 0.6f, 1.0f };
 	mMainPassCB.Lights[0].Direction = shadowPass->mBaseLightDirections[0];
-	mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
+	mMainPassCB.Lights[0].Strength = { mainLightIntensity };
 	mMainPassCB.Lights[1].Direction = shadowPass->mBaseLightDirections[1];
 	mMainPassCB.Lights[1].Strength = { 0.1f, 0.1f, 0.1f };
 	mMainPassCB.Lights[2].Direction = shadowPass->mBaseLightDirections[2];

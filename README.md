@@ -17,6 +17,6 @@ A Simple Renderer Based on DirectX12 (学习龙书的练手项目)
 - [ ] Forward+ rendering
 - [ ] PBR (may be)
 - [ ] NPR (may be)
-- [ ] Gui (imgui)
+- [x] Gui (imgui)
 - [ ] Reflection
 - [ ] new math library

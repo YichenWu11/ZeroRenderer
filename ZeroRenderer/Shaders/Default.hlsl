@@ -94,7 +94,9 @@ float4 PS(VertexOut pin) : SV_Target
     if (normalMapIndex == -1) bumpedNormalW = pin.NormalW;
 
 	// Uncomment to turn off normal mapping.
-    // bumpedNormalW = pin.NormalW;
+#ifdef NO_NORMAL_MAP
+    bumpedNormalW = pin.NormalW;
+#endif
 
     // Vector from point being lit to eye. 
     float3 toEyeW = normalize(gEyePosW - pin.PosW);

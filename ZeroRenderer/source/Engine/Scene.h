@@ -29,6 +29,8 @@ public:
 		UINT BaseVertexLocation,
 		D3D12_PRIMITIVE_TOPOLOGY PrimitiveType= D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	void DeleteLastRenderItem(RenderLayer layer);
+
 	void UpdateObjectCBs(UploadBuffer<ObjectConstants>*);
 
 	std::vector<RenderItem*>& GetRenderLayer(RenderLayer layer) { return mRitemLayer[(int)layer]; }

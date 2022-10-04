@@ -2,6 +2,7 @@
 
 #include "../../3rdparty/imgui/imgui.h"
 #include "../../3rdparty/imgui/imgui_impl_dx12.h"
+#include "../../3rdparty/imgui/imgui_impl_win32.h"
 
 #include "../Common/d3dApp.h"
 #include "../Common/MathHelper.h"
@@ -40,7 +41,7 @@ public:
     ~ZeroRenderer();
 
     virtual bool Initialize() override;
-    virtual int Run() override;
+    virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) override;
 
 private:
     virtual void OnResize() override;
@@ -66,6 +67,7 @@ private:
     void BuildMaterials();
     void BuildRenderItems();
 
+    void DrawImGui();
     void PopulateCommandList(const GameTimer& gt);
     void SubmitCommandList(const GameTimer& gt);
 
@@ -111,4 +113,6 @@ private:
     std::unique_ptr<ShadowPass> shadowPass;
     std::unique_ptr<SsaoPass>   ssaoPass;
     std::unique_ptr<MainPass>   mainPass;
+
+    bool enable_camera_move = true;
 };

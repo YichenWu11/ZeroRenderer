@@ -30,6 +30,12 @@ void Scene::CreateRenderItem(
 	mAllRitems.push_back(std::move(item));
 }
 
+void Scene::DeleteLastRenderItem(RenderLayer layer)
+{
+	mRitemLayer[(int)layer].pop_back();
+	mAllRitems.pop_back();
+}
+
 void Scene::UpdateObjectCBs(UploadBuffer<ObjectConstants>* currObjectCB)
 {
 	for (auto& item : mAllRitems)

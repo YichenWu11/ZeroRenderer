@@ -10,7 +10,7 @@ using Microsoft::WRL::ComPtr;
 class ShadowPass : public RenderPass
 {
 public:
-	ShadowPass(ID3D12Device* device);
+	ShadowPass(ID3D12Device* device, UINT);
 
 	virtual void Render(
         ComPtr<ID3D12GraphicsCommandList> mCommandList,
@@ -61,4 +61,6 @@ public:
     };
 
     PassConstants mShadowPassCB;
+
+    UINT mCbvSrvUavDescriptorSize = 0;
 };

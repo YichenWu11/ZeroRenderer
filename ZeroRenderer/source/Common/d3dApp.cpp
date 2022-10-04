@@ -227,7 +227,7 @@ void D3DApp::OnResize()
 	FlushCommandQueue();
 
 	// Update the viewport transform to cover the client area.
-	mScreenViewport.TopLeftX = 0.0f;
+	mScreenViewport.TopLeftX = 400.0f;
 	mScreenViewport.TopLeftY = 0.0f;
 	mScreenViewport.Width    = static_cast<float>(mClientWidth);
 	mScreenViewport.Height   = static_cast<float>(mClientHeight);
