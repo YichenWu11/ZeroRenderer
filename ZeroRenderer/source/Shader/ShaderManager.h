@@ -14,7 +14,8 @@ public:
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> GetInputLayout() const;
 
-public:
+	void ControlNormalMap(bool is_normal_map);
+
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;

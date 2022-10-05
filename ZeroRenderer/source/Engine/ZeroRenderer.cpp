@@ -166,12 +166,6 @@ void ZeroRenderer::DrawImGui()
 		ImGui::Text("\nChange the MainLight Intensity / Color");
 		ImGui::ColorEdit3("clear color", (float*)&(mainPass->mainLightIntensity));
 
-		ImGui::Text("\nButton");
-		if (ImGui::Button("Button"))
-			counter++;
-		ImGui::SameLine();
-		ImGui::Text("counter = %d", counter);
-
 		ImGui::Text("\nApplication average %.3f ms/frame (%.1f FPS)\n", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 		if (show_style) ImGui::ShowStyleEditor();
@@ -189,7 +183,7 @@ void ZeroRenderer::DrawImGui()
 		static char mat[20] = "tile0";
 		static char shape[20] = "sphere";
 
-		ImGui::Begin("Another Window", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+		ImGui::Begin("Edit RenderItem", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
 		ImGui::Text("Add RenderItem to Scene\n");
 
 		ImGui::InputInt("Render Layer", &layer);
@@ -205,7 +199,7 @@ void ZeroRenderer::DrawImGui()
 			{
 				auto general_geo = mGeometries["shapeGeo"].get();
 				mScene->CreateRenderItem(
-					RenderLayer(layer),
+					static_cast<RenderLayer>(layer),
 					XMMatrixScaling(world_scale.x, world_scale.y, world_scale.z) * 
 					XMMatrixTranslation(world_pos.x, world_pos.y, world_pos.z),
 					XMMatrixIdentity(),
@@ -218,7 +212,7 @@ void ZeroRenderer::DrawImGui()
 			}
 		}
 
-		if (ImGui::Button("DeletePastItem"))
+		if (ImGui::Button("DeleteLastItem"))
 		{
 			mScene->DeleteLastRenderItem(RenderLayer(layer));
 		}
