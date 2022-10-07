@@ -377,16 +377,16 @@ void ZeroRenderer::LoadTextures()
 
 	std::vector<std::wstring> texFilenames =
 	{
-		L"asset\\bricks2.dds",
-		L"asset\\bricks2_nmap.dds",
-
-		L"asset\\BrokenGlass.dds",
-
-		L"asset\\tile.dds",
-		L"asset\\tile_nmap.dds",
-
-		L"asset\\white1x1.dds",
-		L"asset\\snowcube1024.dds",
+		L"asset\\texture\\common\\bricks2.dds",
+		L"asset\\texture\\common\\bricks2_nmap.dds",
+		
+		L"asset\\texture\\common\\BrokenGlass.dds",
+				
+		L"asset\\texture\\common\\tile.dds",
+		L"asset\\texture\\common\\tile_nmap.dds",
+			
+		L"asset\\texture\\common\\white1x1.dds",
+		L"asset\\texture\\sky\\snowcube1024.dds",
 	};
 
 	for (int i = 0; i < (int)texNames.size(); ++i)
