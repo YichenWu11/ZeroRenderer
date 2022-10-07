@@ -29,6 +29,7 @@ public:
 
     UINT mSkyTexHeapIndex;
     UINT mCbvSrvUavDescriptorSize;
+
     XMFLOAT3 mainLightIntensity = { 0.9f, 0.8f, 0.7f };
 
     // 在 ZeroRenderer::Update 中更新 per frame

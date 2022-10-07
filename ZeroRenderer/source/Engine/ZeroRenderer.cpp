@@ -160,11 +160,8 @@ void ZeroRenderer::DrawImGui()
 		ImGui::Checkbox("Style Editor", &show_style);
 		ImGui::Checkbox("Add RenderItem", &add_render_item);
 
-		ImGui::Text("\nChange a float between 0.0f and 1.0f");
-		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-
 		ImGui::Text("\nChange the MainLight Intensity / Color");
-		ImGui::ColorEdit3("clear color", (float*)&(mainPass->mainLightIntensity));
+		ImGui::ColorEdit3("Color", (float*)&(mainPass->mainLightIntensity));
 
 		ImGui::Text("\nApplication average %.3f ms/frame (%.1f FPS)\n", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
@@ -175,22 +172,27 @@ void ZeroRenderer::DrawImGui()
 
 	if (add_render_item)
 	{
-		auto general_geo = mGeometries["shapeGeo"].get();
 
-		static int layer = 0;
 		static XMFLOAT3 world_pos = { 15.0f, 6.0f, -20.0f };
 		static XMFLOAT3 world_scale = { 4.0f, 4.0f, 4.0f };
-		static char mat[20] = "tile0";
-		static char shape[20] = "sphere";
 
 		ImGui::Begin("Edit RenderItem", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
 		ImGui::Text("Add RenderItem to Scene\n");
 
-		ImGui::InputInt("Render Layer", &layer);
+		static const char* layers[] = { "Opaque", "Sky", "Transparent", "Debug" };
+		static int layer = 0;
+		ImGui::Combo("Layer", &layer, layers, IM_ARRAYSIZE(layers));
+
 		ImGui::InputFloat3("world pos matrix", (float*)&(world_pos));
 		ImGui::InputFloat3("world scale matrix", (float*)&(world_scale));
-		ImGui::InputText("material", mat, IM_ARRAYSIZE(mat));
-		ImGui::InputText("shape", shape, IM_ARRAYSIZE(shape));
+
+		static const char* material_items[] = { "bricks0", "tile0", "mirror0", "brokenGlass0", "sky"};
+		static int material_item = 0;
+		ImGui::Combo("Material", &material_item, material_items, IM_ARRAYSIZE(material_items));
+
+		static const char* shape_items[] = { "box", "grid", "sphere", "cylinder" };
+		static int shape_item = 0;
+		ImGui::Combo("Shape", &shape_item, shape_items, IM_ARRAYSIZE(shape_items));
 
 		if (ImGui::Button("CreateItem"))
 		{
@@ -203,11 +205,11 @@ void ZeroRenderer::DrawImGui()
 					XMMatrixScaling(world_scale.x, world_scale.y, world_scale.z) * 
 					XMMatrixTranslation(world_pos.x, world_pos.y, world_pos.z),
 					XMMatrixIdentity(),
-					matManager->GetMaterial(mat),
+					matManager->GetMaterial(material_items[material_item]),
 					general_geo,
-					general_geo->DrawArgs[shape].IndexCount,
-					general_geo->DrawArgs[shape].StartIndexLocation,
-					general_geo->DrawArgs[shape].BaseVertexLocation
+					general_geo->DrawArgs[shape_items[shape_item]].IndexCount,
+					general_geo->DrawArgs[shape_items[shape_item]].StartIndexLocation,
+					general_geo->DrawArgs[shape_items[shape_item]].BaseVertexLocation
 				);
 			}
 		}
@@ -327,6 +329,12 @@ void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 
 		if (GetAsyncKeyState('L') & 0x8000)
 			shadowPass->mBaseLightDirections[0].x -= 1.0f * dt;
+
+		if (GetAsyncKeyState('U') & 0x8000)
+			shadowPass->mBaseLightDirections[0].y += 1.0f * dt;
+
+		if (GetAsyncKeyState('O') & 0x8000)
+			shadowPass->mBaseLightDirections[0].y -= 1.0f * dt;
 
 		mCamera.UpdateViewMatrix();
 	}
@@ -820,24 +828,24 @@ void ZeroRenderer::BuildRenderItems()
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
+		XMMatrixScaling(3.0f, 3.0f, 3.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
 		XMMatrixIdentity(),
 		matManager->GetMaterial("bricks0"),
 		general_geo,
-		general_geo->DrawArgs["sphere"].IndexCount,
-		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
+		general_geo->DrawArgs["box"].IndexCount,
+		general_geo->DrawArgs["box"].StartIndexLocation,
+		general_geo->DrawArgs["box"].BaseVertexLocation
 	);
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
+		XMMatrixScaling(3.0f, 3.0f, 3.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
 		XMMatrixIdentity(),
 		matManager->GetMaterial("tile0"),
 		general_geo,
-		general_geo->DrawArgs["sphere"].IndexCount,
-		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
+		general_geo->DrawArgs["box"].IndexCount,
+		general_geo->DrawArgs["box"].StartIndexLocation,
+		general_geo->DrawArgs["box"].BaseVertexLocation
 	);
 
 	mScene->CreateRenderItem(

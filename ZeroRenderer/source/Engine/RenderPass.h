@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../Common/d3dUtil.h"
-
 #include "../DXRuntime/FrameResource.h"
 
 #include "../Shader/RenderItem.h"
@@ -12,10 +10,17 @@
 
 #include "../Common/Camera.h"
 
+class Scene;
+
+class PSOManager;
+
+struct RenderItem;
+
 class RenderPass
 {
 public:
 	RenderPass() = default;
+	virtual ~RenderPass() = default;
 
 	virtual void Render(
         ComPtr<ID3D12GraphicsCommandList> mCommandList,
