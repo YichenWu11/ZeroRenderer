@@ -150,9 +150,6 @@ void ZeroRenderer::DrawImGui()
 	if (show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
 
-	static float f = 0.0f;
-	static int counter = 0;
-
 	{
 		ImGui::Begin("Scene And Objects");
 
@@ -175,6 +172,7 @@ void ZeroRenderer::DrawImGui()
 
 		static XMFLOAT3 world_pos = { 15.0f, 6.0f, -20.0f };
 		static XMFLOAT3 world_scale = { 4.0f, 4.0f, 4.0f };
+		static XMFLOAT3 tex_transform = { 1.0f, 1.0f, 1.0f };
 
 		ImGui::Begin("Edit RenderItem", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
 		ImGui::Text("Add RenderItem to Scene\n");
@@ -185,6 +183,7 @@ void ZeroRenderer::DrawImGui()
 
 		ImGui::InputFloat3("world pos matrix", (float*)&(world_pos));
 		ImGui::InputFloat3("world scale matrix", (float*)&(world_scale));
+		ImGui::InputFloat3("texture scale matrix", (float*)&(tex_transform));
 
 		static const char* material_items[] = { "bricks0", "tile0", "mirror0", "brokenGlass0", "sky"};
 		static int material_item = 0;
@@ -204,7 +203,7 @@ void ZeroRenderer::DrawImGui()
 					static_cast<RenderLayer>(layer),
 					XMMatrixScaling(world_scale.x, world_scale.y, world_scale.z) * 
 					XMMatrixTranslation(world_pos.x, world_pos.y, world_pos.z),
-					XMMatrixIdentity(),
+					XMMatrixScaling(tex_transform.x, tex_transform.y, tex_transform.z),
 					matManager->GetMaterial(material_items[material_item]),
 					general_geo,
 					general_geo->DrawArgs[shape_items[shape_item]].IndexCount,
