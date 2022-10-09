@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../Common/d3dUtil.h"
-#include "../Common/MathHelper.h"
+
+#include "../Math/MathHelper.h"
 
 #include "../Resource/UploadBuffer.h"
 

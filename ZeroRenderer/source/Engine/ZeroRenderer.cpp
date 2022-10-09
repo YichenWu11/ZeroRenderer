@@ -5,6 +5,8 @@ const int gNumFrameResources = 3;
 
 const int maxObjectNum = 100;
 
+const int mouseMoveSensity = 1;
+
 ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance) 
 {
 	IMGUI_CHECKVERSION();
@@ -147,13 +149,13 @@ void ZeroRenderer::DrawImGui()
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	if (show_demo_window)
-		ImGui::ShowDemoWindow(&show_demo_window);
+	//if (show_demo_window)
+	//	ImGui::ShowDemoWindow(&show_demo_window);
 
 	{
 		ImGui::Begin("Scene And Objects");
 
-		ImGui::Checkbox("Demo Window", &show_demo_window);
+		//ImGui::Checkbox("Demo Window", &show_demo_window);
 		ImGui::Checkbox("Style Editor", &show_style);
 		ImGui::Checkbox("Add RenderItem", &add_render_item);
 
@@ -289,8 +291,8 @@ void ZeroRenderer::OnMouseMove(WPARAM btnState, int x, int y)
 		float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 		
 		// adjust the camera orientation
-		mCamera.Pitch(dy);
-		mCamera.RotateY(dx);
+		mCamera.Pitch(dy / mouseMoveSensity);
+		mCamera.RotateY(dx / mouseMoveSensity);
 	}
 
 	mLastMousePos.x = x;
@@ -385,7 +387,7 @@ void ZeroRenderer::LoadTextures()
 		L"asset\\texture\\common\\tile_nmap.dds",
 			
 		L"asset\\texture\\common\\white1x1.dds",
-		L"asset\\texture\\sky\\snowcube1024.dds",
+		L"asset\\texture\\sky\\desertcube1024.dds",
 	};
 
 	for (int i = 0; i < (int)texNames.size(); ++i)
@@ -827,7 +829,7 @@ void ZeroRenderer::BuildRenderItems()
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
-		XMMatrixScaling(3.0f, 3.0f, 3.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
 		XMMatrixIdentity(),
 		matManager->GetMaterial("bricks0"),
 		general_geo,
@@ -838,7 +840,7 @@ void ZeroRenderer::BuildRenderItems()
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
-		XMMatrixScaling(3.0f, 3.0f, 3.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
+		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
 		XMMatrixIdentity(),
 		matManager->GetMaterial("tile0"),
 		general_geo,
@@ -858,16 +860,16 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["sphere"].BaseVertexLocation
 	);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Debug,
-		XMMatrixRotationX(45.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("bricks0"),
-		general_geo,
-		general_geo->DrawArgs["quad"].IndexCount,
-		general_geo->DrawArgs["quad"].StartIndexLocation,
-		general_geo->DrawArgs["quad"].BaseVertexLocation
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Debug,
+	//	XMMatrixRotationX(45.0f),
+	//	XMMatrixIdentity(),
+	//	matManager->GetMaterial("bricks0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["quad"].IndexCount,
+	//	general_geo->DrawArgs["quad"].StartIndexLocation,
+	//	general_geo->DrawArgs["quad"].BaseVertexLocation
+	//);
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const
@@ -907,128 +909,5 @@ LRESULT ZeroRenderer::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	if (ImGui_ImplWin32_WndProcHandler(mhMainWnd, msg, wParam, lParam))
 		return true;
 
-	switch (msg)
-	{
-	case WM_ACTIVATE:
-		if (LOWORD(wParam) == WA_INACTIVE)
-		{
-			mAppPaused = true;
-			mTimer.Stop();
-		}
-		else
-		{
-			mAppPaused = false;
-			mTimer.Start();
-		}
-		return 0;
-
-	case WM_SIZE:
-		mClientWidth = LOWORD(lParam);
-		mClientHeight = HIWORD(lParam);
-		if (md3dDevice)
-		{
-			if (wParam == SIZE_MINIMIZED)
-			{
-				mAppPaused = true;
-				mMinimized = true;
-				mMaximized = false;
-			}
-			else if (wParam == SIZE_MAXIMIZED)
-			{
-				mAppPaused = false;
-				mMinimized = false;
-				mMaximized = true;
-				OnResize();
-			}
-			else if (wParam == SIZE_RESTORED)
-			{
-
-				// Restoring from minimized state?
-				if (mMinimized)
-				{
-					mAppPaused = false;
-					mMinimized = false;
-					OnResize();
-				}
-
-				// Restoring from maximized state?
-				else if (mMaximized)
-				{
-					mAppPaused = false;
-					mMaximized = false;
-					OnResize();
-				}
-				else if (mResizing)
-				{
-				}
-				else // API call such as SetWindowPos or mSwapChain->SetFullscreenState.
-				{
-					OnResize();
-				}
-			}
-		}
-		return 0;
-
-		// WM_EXITSIZEMOVE is sent when the user grabs the resize bars.
-	case WM_ENTERSIZEMOVE:
-		mAppPaused = true;
-		mResizing = true;
-		mTimer.Stop();
-		return 0;
-
-		// WM_EXITSIZEMOVE is sent when the user releases the resize bars.
-		// Here we reset everything based on the new window dimensions.
-	case WM_EXITSIZEMOVE:
-		mAppPaused = false;
-		mResizing = false;
-		mTimer.Start();
-		OnResize();
-		return 0;
-
-		// WM_DESTROY is sent when the window is being destroyed.
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-
-		// The WM_MENUCHAR message is sent when a menu is active and the user presses 
-		// a key that does not correspond to any mnemonic or accelerator key. 
-	case WM_MENUCHAR:
-		// Don't beep when we alt-enter.
-		return MAKELRESULT(0, MNC_CLOSE);
-
-		// Catch this message so to prevent the window from becoming too small.
-	case WM_GETMINMAXINFO:
-		((MINMAXINFO*)lParam)->ptMinTrackSize.x = 200;
-		((MINMAXINFO*)lParam)->ptMinTrackSize.y = 200;
-		return 0;
-
-	case WM_LBUTTONDOWN:
-	case WM_MBUTTONDOWN:
-	case WM_RBUTTONDOWN:
-		OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
-	case WM_LBUTTONUP:
-	case WM_MBUTTONUP:
-	case WM_RBUTTONUP:
-		OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
-	case WM_MOUSEMOVE:
-		OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
-	case WM_KEYUP:
-		if (wParam == VK_ESCAPE)
-		{
-			PostQuitMessage(0);
-			exit(0);
-		}
-		else if ((int)wParam == VK_F2)
-			Set4xMsaaState(!m4xMsaaState);
-		else if ((int)wParam == VK_SPACE)
-			//mAppPaused = !mAppPaused;  // 暂停还需要修复（暂停期间不记录鼠标位置）
-			enable_camera_move = !enable_camera_move; // 是否允许摄像机移动
-
-		return 0;
-	}
-
-	return DefWindowProc(hwnd, msg, wParam, lParam);  // Default
+	return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
 }

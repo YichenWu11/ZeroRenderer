@@ -169,7 +169,7 @@ void Ssao::OnResize(UINT newWidth, UINT newHeight)
         mRenderTargetHeight = newHeight;
 
         // We render to ambient map at half the resolution.
-        mViewport.TopLeftX = 400.0f;
+        mViewport.TopLeftX = 330.0f;
         mViewport.TopLeftY = 0.0f;
         mViewport.Width = mRenderTargetWidth / 2.0f;
         mViewport.Height = mRenderTargetHeight / 2.0f;

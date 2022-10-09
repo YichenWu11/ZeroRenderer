@@ -5,9 +5,11 @@
 #include "../../3rdparty/imgui/imgui_impl_win32.h"
 
 #include "../Common/d3dApp.h"
-#include "../Common/MathHelper.h"
 #include "../Common/Camera.h"
 #include "../Common/GeometryGenerator.h"
+
+#include "../Math/MathHelper.h"
+#include "../Math/Quaternion.h"
 
 #include "../DXRuntime/FrameResource.h"
 #include "../DXRuntime/CommandListHandle.h"

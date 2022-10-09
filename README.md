@@ -12,7 +12,7 @@ A Simple Renderer Based on DirectX12 (学习龙书的练手项目)
 - [x] normal map
 - [x] a series of managers
 - [x] SSAO
-- [ ] quaternions
+- [x] quaternions
 - [ ] Pick Object
 - [ ] PostPass (colorgrading etc)
 - [ ] Deferred rendering (may be)

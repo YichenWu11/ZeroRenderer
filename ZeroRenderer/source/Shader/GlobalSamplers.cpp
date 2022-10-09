@@ -40,7 +40,7 @@ struct GlobalSampleData {
 			D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
 			D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressW
 			0.0f,                             // mipLODBias
-			8);                               // maxAnisotropy
+			16);                               // maxAnisotropy
 
 		const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(
 			5, // shaderRegister
@@ -49,7 +49,7 @@ struct GlobalSampleData {
 			D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
 			D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressW
 			0.0f,                              // mipLODBias
-			8);                                // maxAnisotropy
+			16);                                // maxAnisotropy
 
 		const CD3DX12_STATIC_SAMPLER_DESC shadow(
 			6, // shaderRegister

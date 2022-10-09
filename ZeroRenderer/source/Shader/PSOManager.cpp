@@ -27,7 +27,7 @@ PSOManager::PSOManager(
         mShaders["opaquePS"]->GetBufferSize()
     };
     basePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    //basePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    basePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     basePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     basePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     basePsoDesc.SampleMask = UINT_MAX;

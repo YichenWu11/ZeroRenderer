@@ -1,7 +1,3 @@
-//***************************************************************************************
-// Camera.h by Frank Luna (C) 2011 All Rights Reserved.
-//***************************************************************************************
-
 #include "Camera.h"
 
 using namespace DirectX;
@@ -201,8 +197,8 @@ void Camera::Walk(float d)
 void Camera::Pitch(float angle)
 {
 	// Rotate up and look vector about the right vector.
-
-	XMMATRIX R = XMMatrixRotationAxis(XMLoadFloat3(&mRight), angle);
+	
+	XMMATRIX R = XMMatrixRotationQuaternion(Quaternion(XMLoadFloat3(&mRight), angle));
 
 	XMStoreFloat3(&mUp,   XMVector3TransformNormal(XMLoadFloat3(&mUp), R));
 	XMStoreFloat3(&mLook, XMVector3TransformNormal(XMLoadFloat3(&mLook), R));
@@ -214,7 +210,7 @@ void Camera::RotateY(float angle)
 {
 	// Rotate the basis vectors about the world y-axis.
 
-	XMMATRIX R = XMMatrixRotationY(angle);
+	XMMATRIX R = XMMatrixRotationQuaternion(Quaternion(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), angle));
 
 	XMStoreFloat3(&mRight,   XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
 	XMStoreFloat3(&mUp, XMVector3TransformNormal(XMLoadFloat3(&mUp), R));

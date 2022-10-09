@@ -3,7 +3,8 @@
 #include <DirectXMath.h>
 
 #include "../Common/d3dUtil.h"
-#include "../Common/MathHelper.h"
+
+#include "../Math/MathHelper.h"
 
 #include "../Resource/Mesh.h"
 

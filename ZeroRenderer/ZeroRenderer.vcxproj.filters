@@ -45,7 +45,7 @@
     <ClCompile Include="source\Common\GeometryGenerator.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
-    <ClCompile Include="source\Common\MathHelper.cpp">
+    <ClCompile Include="source\Math\MathHelper.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
     <ClCompile Include="source\Main.cpp">
@@ -114,6 +114,9 @@
     <ClCompile Include="source\Engine\MainPass.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="source\Math\Quaternion.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Common\Camera.h">
@@ -137,7 +140,7 @@
     <ClInclude Include="source\Common\GeometryGenerator.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
-    <ClInclude Include="source\Common\MathHelper.h">
+    <ClInclude Include="source\Math\MathHelper.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
     <ClInclude Include="source\Resource\UploadBuffer.h">
@@ -225,6 +228,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="source\Engine\MainPass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Math\Quaternion.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

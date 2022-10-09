@@ -146,7 +146,7 @@
     <ClCompile Include="source\Common\DDSTextureLoader.cpp" />
     <ClCompile Include="source\Common\GameTimer.cpp" />
     <ClCompile Include="source\Common\GeometryGenerator.cpp" />
-    <ClCompile Include="source\Common\MathHelper.cpp" />
+    <ClCompile Include="source\Math\MathHelper.cpp" />
     <ClCompile Include="source\DXRuntime\CommandListHandle.cpp" />
     <ClCompile Include="source\DXRuntime\FrameResource.cpp" />
     <ClCompile Include="source\Engine\Scene.cpp" />
@@ -160,6 +160,7 @@
     <ClCompile Include="source\Shader\ShadowMap.cpp" />
     <ClCompile Include="source\Shader\Ssao.cpp" />
     <ClCompile Include="source\Utility\public_singleton.cpp" />
+    <ClCompile Include="source\Math\Quaternion.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdparty\imgui\imconfig.h" />
@@ -179,7 +180,7 @@
     <ClInclude Include="source\Common\DDSTextureLoader.h" />
     <ClInclude Include="source\Common\GameTimer.h" />
     <ClInclude Include="source\Common\GeometryGenerator.h" />
-    <ClInclude Include="source\Common\MathHelper.h" />
+    <ClInclude Include="source\Math\MathHelper.h" />
     <ClInclude Include="source\Common\Metalib.h" />
     <ClInclude Include="source\DXRuntime\CommandListHandle.h" />
     <ClInclude Include="source\Engine\RenderPass.h" />
@@ -199,6 +200,7 @@
     <ClInclude Include="source\Shader\ShadowMap.h" />
     <ClInclude Include="source\Shader\Ssao.h" />
     <ClInclude Include="source\Utility\public_singleton.h" />
+    <ClInclude Include="source\Math\Quaternion.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

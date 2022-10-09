@@ -2,6 +2,7 @@
 #define CAMERA_H
 
 #include "d3dUtil.h"
+#include "../Math/Quaternion.h"
 
 class Camera
 {
