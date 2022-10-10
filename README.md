@@ -13,7 +13,7 @@ A Simple Renderer Based on DirectX12 (学习龙书的练手项目)
 - [x] a series of managers
 - [x] SSAO
 - [x] quaternions
-- [ ] Pick Object
+- [x] Pick Object
 - [ ] PostPass (colorgrading etc)
 - [ ] Deferred rendering (may be)
 - [ ] Forward+ rendering

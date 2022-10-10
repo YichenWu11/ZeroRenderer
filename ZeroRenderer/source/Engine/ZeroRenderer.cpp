@@ -149,13 +149,13 @@ void ZeroRenderer::DrawImGui()
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	//if (show_demo_window)
-	//	ImGui::ShowDemoWindow(&show_demo_window);
+	if (show_demo_window)
+		ImGui::ShowDemoWindow(&show_demo_window);
 
 	{
 		ImGui::Begin("Scene And Objects");
 
-		//ImGui::Checkbox("Demo Window", &show_demo_window);
+		ImGui::Checkbox("Demo Window", &show_demo_window);
 		ImGui::Checkbox("Style Editor", &show_style);
 		ImGui::Checkbox("Add RenderItem", &add_render_item);
 
@@ -166,13 +166,60 @@ void ZeroRenderer::DrawImGui()
 
 		if (show_style) ImGui::ShowStyleEditor();
 
-		// 移动物体如下
-		static XMFLOAT3 ritem_1_world = { 30.0f, 6.0f, -20.0f };
+		static float pos_x = 0.0f;
+		static float pos_y = 0.0f;
+		static float pos_z = 0.0f;
+
+		static XMFLOAT3 obj_rotate_axis = { 0.0f, 1.0f, 0.0f };
+		static float obj_rotate_angle = 0.0f;
+
+		static XMFLOAT3 last_obj_rotate_axis = { 0.0f, 1.0f, 0.0f };
+		static float last_obj_rotate_angle = 0.0f;
+
 		if (mPickedRitem)
 		{
-			XMStoreFloat4x4(&(mPickedRitem->World), XMMatrixTranslation(ritem_1_world.x, ritem_1_world.y, ritem_1_world.z));
-			mPickedRitem->NumFramesDirty = 3;
-			//ritem_1_world.x += 5.0f;
+			ImGui::Text("\nChange Position and Orientation of the Picked\n");
+
+			XMMATRIX world_matrix = XMLoadFloat4x4(&mPickedRitem->World);
+			pos_x = mPickedRitem->World._41;
+			pos_y = mPickedRitem->World._42;
+			pos_z = mPickedRitem->World._43;
+
+			// rotation
+			ImGui::InputFloat3("rotate axis", (float*)&(obj_rotate_axis));
+			//ImGui::SliderFloat("rotate angle", &obj_rotate_angle, 0.0f, 180.0f);
+			ImGui::InputFloat("rotate angle", &obj_rotate_angle, 0.0f, 180.0f);
+
+			if (!XMQuaternionEqual(
+				Quaternion(
+					XMLoadFloat3(&obj_rotate_axis),
+					XMConvertToRadians(obj_rotate_angle)),
+				Quaternion(
+					XMLoadFloat3(&last_obj_rotate_axis),
+					XMConvertToRadians(last_obj_rotate_angle))))
+			{
+				XMStoreFloat4x4(
+					&(mPickedRitem->World),
+					XMMatrixRotationQuaternion(
+						Quaternion(
+							XMLoadFloat3(&obj_rotate_axis),
+							XMConvertToRadians(obj_rotate_angle))) *
+					world_matrix
+				);
+			}
+			
+			// translation
+			ImGui::SliderFloat("X_Pos", &pos_x, -50.f, 50.f);
+			ImGui::SliderFloat("Y_Pos", &pos_y, -50.f, 50.f);
+			ImGui::SliderFloat("Z_Pos", &pos_z, -50.f, 50.f);
+			mPickedRitem->World._41 = pos_x;
+			mPickedRitem->World._42 = pos_y;
+			mPickedRitem->World._43 = pos_z;
+
+			mPickedRitem->NumFramesDirty = gNumFrameResources;
+
+			last_obj_rotate_axis = obj_rotate_axis;
+			last_obj_rotate_angle = obj_rotate_angle;
 		}
 
 		ImGui::End();
@@ -199,7 +246,7 @@ void ZeroRenderer::DrawImGui()
 		ImGui::InputFloat3("world scale matrix", (float*)&(world_scale));
 
 		ImGui::InputFloat3("rotate axis", (float*)&(rotate_axis));
-		ImGui::InputFloat("angle", &rotate_angle, 0.0f, 360.0f);
+		ImGui::InputFloat("rotate angle", &rotate_angle, 0.0f, 360.0f);
 
 		ImGui::InputFloat3("texture scale matrix", (float*)&(tex_transform));
 
@@ -236,6 +283,10 @@ void ZeroRenderer::DrawImGui()
 
 		if (ImGui::Button("DeleteLastItem"))
 		{
+			if ((mScene->GetRenderLayer(RenderLayer(layer))[mScene->GetRenderLayerSize(layer)-1] == mPickedRitem))
+			{
+				mPickedRitem = nullptr;
+			}
 			mScene->DeleteLastRenderItem(RenderLayer(layer));
 		}
 
@@ -307,7 +358,7 @@ void ZeroRenderer::OnMouseUp(WPARAM btnState, int x, int y)
 void ZeroRenderer::OnMouseMove(WPARAM btnState, int x, int y)
 {
 	// && enable_camera_move
-	if ((btnState & MK_RBUTTON) != 0 && enable_camera_move)
+	if ((btnState & MK_RBUTTON) != 0)
 	{
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
@@ -359,6 +410,13 @@ void ZeroRenderer::OnKeyboardInput(const GameTimer& gt)
 
 		if (GetAsyncKeyState('O') & 0x8000)
 			shadowPass->mBaseLightDirections[0].y -= 1.0f * dt;
+
+		if (GetAsyncKeyState('R') & 0x8000)
+			if (mPickedRitem)
+			{
+				mPickedRitem->Visible = true;
+				mPickedRitem = nullptr;
+			}
 
 		mCamera.UpdateViewMatrix();
 	}
@@ -889,17 +947,17 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["sphere"].Bounds
 	);
 
-	//mScene->CreateRenderItem(
-	//	RenderLayer::Opaque,
-	//	XMMatrixScaling(3.0f, 3.0f, 3.0f),
-	//	XMMatrixScaling(8.0f, 8.0f, 1.0f),
-	//	matManager->GetMaterial("tile0"),
-	//	general_geo,
-	//	general_geo->DrawArgs["grid"].IndexCount,
-	//	general_geo->DrawArgs["grid"].StartIndexLocation,
-	//	general_geo->DrawArgs["grid"].BaseVertexLocation,
-	//	general_geo->DrawArgs["grid"].Bounds
-	//);
+	mScene->CreateRenderItem(
+		RenderLayer::Opaque,
+		XMMatrixScaling(3.0f, 3.0f, 3.0f),
+		XMMatrixScaling(8.0f, 8.0f, 0.8f),
+		matManager->GetMaterial("tile0"),
+		general_geo,
+		general_geo->DrawArgs["grid"].IndexCount,
+		general_geo->DrawArgs["grid"].StartIndexLocation,
+		general_geo->DrawArgs["grid"].BaseVertexLocation,
+		general_geo->DrawArgs["grid"].Bounds
+	);
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
@@ -995,8 +1053,8 @@ void ZeroRenderer::Pick(int sx, int sy)
 	OutputDebugString(L"InPick\n");
 	XMFLOAT4X4 P = mCamera.GetProj4x4f();
 
-	// Compute picking ray in view space.
-	float vx = (+2.0f * sx / mClientWidth - 1.0f) / P(0, 0);
+	// Compute picking ray in view space. (with Topleftx = 330.0f)
+	float vx = (+2.0f * sx / mClientWidth - 1.0f - 660.f / mClientWidth) / P(0, 0);
 	float vy = (-2.0f * sy / mClientHeight + 1.0f) / P(1, 1);
 
 	// Ray definition in view space.
@@ -1006,9 +1064,16 @@ void ZeroRenderer::Pick(int sx, int sy)
 	XMMATRIX V = mCamera.GetView();
 	XMMATRIX invView = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(V)), V);
 
-	for (auto ri : mScene->GetRenderLayer((int)RenderLayer::Opaque))
+	if (mPickedRitem) mPickedRitem->Visible = false;
+	
+	for (const auto& ri : mScene->GetRenderLayer((int)RenderLayer::Opaque))
 	{
+		rayOrigin = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+		rayDir = XMVectorSet(vx, vy, 1.0f, 0.0f);
+
 		auto geo = ri->Geo;
+		if (ri->Visible == false)
+			continue;
 
 		XMMATRIX W = XMLoadFloat4x4(&ri->World);
 		XMMATRIX invWorld = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(W)), W);
@@ -1022,10 +1087,41 @@ void ZeroRenderer::Pick(int sx, int sy)
 		// Make the ray direction unit length for the intersection tests.
 		rayDir = XMVector3Normalize(rayDir);
 
-		float tmin = 0.0f;
+		float tmin = 0.001f;
 		if (ri->Bounds.Intersects(rayOrigin, rayDir, tmin))
 		{
 			OutputDebugString(L"InInnerPick\n");
+			if (mPickedRitem) mPickedRitem->Visible = true;
+			mPickedRitem = ri;
+		}
+	}
+
+	for (const auto& ri : mScene->GetRenderLayer((int)RenderLayer::Transparent))
+	{
+		rayOrigin = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+		rayDir = XMVectorSet(vx, vy, 1.0f, 0.0f);
+
+		auto geo = ri->Geo;
+		if (ri->Visible == false)
+			continue;
+
+		XMMATRIX W = XMLoadFloat4x4(&ri->World);
+		XMMATRIX invWorld = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(W)), W);
+
+		// Tranform ray to vi space of Mesh.
+		XMMATRIX toLocal = XMMatrixMultiply(invView, invWorld);
+
+		rayOrigin = XMVector3TransformCoord(rayOrigin, toLocal);
+		rayDir = XMVector3TransformNormal(rayDir, toLocal);
+
+		// Make the ray direction unit length for the intersection tests.
+		rayDir = XMVector3Normalize(rayDir);
+
+		float tmin = 0.001f;
+		if (ri->Bounds.Intersects(rayOrigin, rayDir, tmin))
+		{
+			OutputDebugString(L"InInnerPick\n");
+			if (mPickedRitem) mPickedRitem->Visible = true;
 			mPickedRitem = ri;
 		}
 	}

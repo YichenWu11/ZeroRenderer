@@ -38,6 +38,8 @@ public:
 
 	size_t GetRitemSize() const { return mAllRitems.size(); }
 
+	size_t GetRenderLayerSize(int layer) const { return mRitemLayer[layer].size(); }
+
 	std::vector<std::unique_ptr<RenderItem>>& GetAllRitems() { return mAllRitems; }
 
 	std::vector<RenderItem*>& GetRenderLayer(int layer) { return mRitemLayer[layer]; }

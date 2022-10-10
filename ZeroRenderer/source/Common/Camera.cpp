@@ -267,5 +267,3 @@ void Camera::UpdateViewMatrix()
 		mViewDirty = false;
 	}
 }
-
-
