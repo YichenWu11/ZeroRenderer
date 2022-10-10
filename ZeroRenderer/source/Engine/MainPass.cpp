@@ -52,6 +52,9 @@ void MainPass::Render(
 	mCommandList->SetPipelineState(psoManager->GetPipelineState("transparent"));
 	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Transparent), mCurrFrameResource);
 
+	mCommandList->SetPipelineState(psoManager->GetPipelineState("highlight"));
+	DrawRenderItems(mCommandList.Get(), mScene->GetRenderLayer(RenderLayer::Highlight), mCurrFrameResource);
+
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 
 	// Indicate a state transition on the resource usage.

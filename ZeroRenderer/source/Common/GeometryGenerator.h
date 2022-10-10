@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <DirectXMath.h>
 #include <vector>
+#include <DirectXCollision.h>
 
 class GeometryGenerator
 {

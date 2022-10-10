@@ -227,14 +227,14 @@ void D3DApp::OnResize()
 	FlushCommandQueue();
 
 	// Update the viewport transform to cover the client area.
-	mScreenViewport.TopLeftX = 330.0f;
+	mScreenViewport.TopLeftX = 0.0f;
 	mScreenViewport.TopLeftY = 0.0f;
 	mScreenViewport.Width    = static_cast<float>(mClientWidth);
 	mScreenViewport.Height   = static_cast<float>(mClientHeight);
 	mScreenViewport.MinDepth = 0.0f;
 	mScreenViewport.MaxDepth = 1.0f;
 
-    mScissorRect = { 0, 0, mClientWidth, mClientHeight - 225 };
+    mScissorRect = { 0, 0, mClientWidth, mClientHeight };
 }
  
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

@@ -18,6 +18,7 @@ enum class RenderLayer : int
 	Sky,
 	Transparent,
 	Debug,
+	Highlight,
 	Count
 };
 
@@ -26,6 +27,8 @@ struct RenderItem
 {
 	RenderItem() = default;
 	RenderItem(const RenderItem& rhs) = delete;
+
+	bool Visible = true;
 
 	XMFLOAT4X4 World = MathHelper::Identity4x4();
 
@@ -46,4 +49,5 @@ struct RenderItem
 	UINT IndexCount = 0;
 	UINT StartIndexLocation = 0;
 	int BaseVertexLocation = 0;
+	BoundingBox Bounds;
 };

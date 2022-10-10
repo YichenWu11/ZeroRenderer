@@ -55,6 +55,8 @@ private:
     virtual void OnMouseUp(WPARAM btnState, int x, int y) override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y) override;
 
+    void Pick(int, int);
+
     void OnKeyboardInput(const GameTimer& gt);
     void AnimateMaterials(const GameTimer& gt);
     void UpdateObjectCBs(const GameTimer& gt);
@@ -117,4 +119,6 @@ private:
     std::unique_ptr<MainPass>   mainPass;
 
     bool enable_camera_move = true;
+
+    RenderItem* mPickedRitem = nullptr;
 };

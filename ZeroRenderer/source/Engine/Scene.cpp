@@ -13,6 +13,7 @@ void Scene::CreateRenderItem(
 	UINT IndexCount,
 	UINT StartIndexLocation,
 	UINT BaseVertexLocation,
+	BoundingBox bounds,
 	D3D12_PRIMITIVE_TOPOLOGY PrimitiveType)
 {
 	auto item = std::make_unique<RenderItem>();
@@ -24,6 +25,7 @@ void Scene::CreateRenderItem(
 	item->IndexCount = IndexCount;
 	item->StartIndexLocation = StartIndexLocation;
 	item->BaseVertexLocation = BaseVertexLocation;
+	item->Bounds = bounds;
 	item->PrimitiveType = PrimitiveType;
 
 	mRitemLayer[(int)layer].push_back(item.get());

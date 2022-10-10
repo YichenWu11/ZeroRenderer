@@ -166,6 +166,15 @@ void ZeroRenderer::DrawImGui()
 
 		if (show_style) ImGui::ShowStyleEditor();
 
+		// 移动物体如下
+		static XMFLOAT3 ritem_1_world = { 30.0f, 6.0f, -20.0f };
+		if (mPickedRitem)
+		{
+			XMStoreFloat4x4(&(mPickedRitem->World), XMMatrixTranslation(ritem_1_world.x, ritem_1_world.y, ritem_1_world.z));
+			mPickedRitem->NumFramesDirty = 3;
+			//ritem_1_world.x += 5.0f;
+		}
+
 		ImGui::End();
 	}
 
@@ -174,6 +183,9 @@ void ZeroRenderer::DrawImGui()
 
 		static XMFLOAT3 world_pos = { 15.0f, 6.0f, -20.0f };
 		static XMFLOAT3 world_scale = { 4.0f, 4.0f, 4.0f };
+		static XMFLOAT3 rotate_axis = { 0.0f, 1.0f, 0.0f };
+		static float rotate_angle = 0.0f;
+
 		static XMFLOAT3 tex_transform = { 1.0f, 1.0f, 1.0f };
 
 		ImGui::Begin("Edit RenderItem", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
@@ -185,6 +197,10 @@ void ZeroRenderer::DrawImGui()
 
 		ImGui::InputFloat3("world pos matrix", (float*)&(world_pos));
 		ImGui::InputFloat3("world scale matrix", (float*)&(world_scale));
+
+		ImGui::InputFloat3("rotate axis", (float*)&(rotate_axis));
+		ImGui::InputFloat("angle", &rotate_angle, 0.0f, 360.0f);
+
 		ImGui::InputFloat3("texture scale matrix", (float*)&(tex_transform));
 
 		static const char* material_items[] = { "bricks0", "tile0", "mirror0", "brokenGlass0", "sky"};
@@ -203,14 +219,17 @@ void ZeroRenderer::DrawImGui()
 				auto general_geo = mGeometries["shapeGeo"].get();
 				mScene->CreateRenderItem(
 					static_cast<RenderLayer>(layer),
+					/* first scale, rotate, then translation */
 					XMMatrixScaling(world_scale.x, world_scale.y, world_scale.z) * 
+					XMMatrixRotationQuaternion(Quaternion(XMLoadFloat3(&rotate_axis), XMConvertToRadians(rotate_angle))) *
 					XMMatrixTranslation(world_pos.x, world_pos.y, world_pos.z),
 					XMMatrixScaling(tex_transform.x, tex_transform.y, tex_transform.z),
 					matManager->GetMaterial(material_items[material_item]),
 					general_geo,
 					general_geo->DrawArgs[shape_items[shape_item]].IndexCount,
 					general_geo->DrawArgs[shape_items[shape_item]].StartIndexLocation,
-					general_geo->DrawArgs[shape_items[shape_item]].BaseVertexLocation
+					general_geo->DrawArgs[shape_items[shape_item]].BaseVertexLocation,
+					general_geo->DrawArgs[shape_items[shape_item]].Bounds
 				);
 			}
 		}
@@ -274,6 +293,9 @@ void ZeroRenderer::OnMouseDown(WPARAM btnState, int x, int y)
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
 
+	if ((btnState & MK_LBUTTON) != 0) Pick(x, y);
+	
+
 	SetCapture(mhMainWnd);
 }
 
@@ -284,7 +306,8 @@ void ZeroRenderer::OnMouseUp(WPARAM btnState, int x, int y)
 
 void ZeroRenderer::OnMouseMove(WPARAM btnState, int x, int y)
 {
-	if ((btnState & MK_LBUTTON) != 0 && enable_camera_move)
+	// && enable_camera_move
+	if ((btnState & MK_RBUTTON) != 0 && enable_camera_move)
 	{
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
@@ -628,7 +651,7 @@ void ZeroRenderer::BuildShapeGeometry()
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount = (UINT)box.Indices32.size();
 	boxSubmesh.StartIndexLocation = boxIndexOffset;
-	boxSubmesh.BaseVertexLocation = boxVertexOffset;
+	boxSubmesh.BaseVertexLocation = boxVertexOffset; 
 
 	SubmeshGeometry gridSubmesh;
 	gridSubmesh.IndexCount = (UINT)grid.Indices32.size();
@@ -658,6 +681,12 @@ void ZeroRenderer::BuildShapeGeometry()
 
 	std::vector<Vertex> vertices(totalVertexCount);
 
+	XMFLOAT3 vMinf3(+MathHelper::Infinity, +MathHelper::Infinity, +MathHelper::Infinity);
+	XMFLOAT3 vMaxf3(-MathHelper::Infinity, -MathHelper::Infinity, -MathHelper::Infinity);
+
+	XMVECTOR vMin = XMLoadFloat3(&vMinf3);
+	XMVECTOR vMax = XMLoadFloat3(&vMaxf3);
+
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size(); ++i, ++k)
 	{
@@ -665,31 +694,79 @@ void ZeroRenderer::BuildShapeGeometry()
 		vertices[k].Normal = box.Vertices[i].Normal;
 		vertices[k].TexC = box.Vertices[i].TexC;
 		vertices[k].TangentU = box.Vertices[i].TangentU;
+
+		XMVECTOR P = XMLoadFloat3(&box.Vertices[i].Position);
+
+		vMin = XMVectorMin(vMin, P);
+		vMax = XMVectorMax(vMax, P);
 	}
 
+	// FIX: BoundingBox Error
+	BoundingBox box_bounds;
+	XMStoreFloat3(&box_bounds.Center, 0.5f * (vMin + vMax));
+	XMStoreFloat3(&box_bounds.Extents, 0.5f * (vMax - vMin));
+	boxSubmesh.Bounds = box_bounds;
+
+	vMin = XMLoadFloat3(&vMinf3);
+	vMax = XMLoadFloat3(&vMaxf3);
 	for (size_t i = 0; i < grid.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = grid.Vertices[i].Position;
 		vertices[k].Normal = grid.Vertices[i].Normal;
 		vertices[k].TexC = grid.Vertices[i].TexC;
 		vertices[k].TangentU = grid.Vertices[i].TangentU;
+
+		XMVECTOR P = XMLoadFloat3(&grid.Vertices[i].Position);
+
+		vMin = XMVectorMin(vMin, P);
+		vMax = XMVectorMax(vMax, P);
 	}
 
+	BoundingBox grid_bounds;
+	XMStoreFloat3(&grid_bounds.Center, 0.5f * (vMin + vMax));
+	XMStoreFloat3(&grid_bounds.Extents, XMVectorSet(0.0f,0.0f,0.0f, 0.0f));
+	//XMStoreFloat3(&grid_bounds.Extents, 0.5f * (vMax - vMin));
+	gridSubmesh.Bounds = grid_bounds;
+
+	vMin = XMLoadFloat3(&vMinf3);
+	vMax = XMLoadFloat3(&vMaxf3);
 	for (size_t i = 0; i < sphere.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = sphere.Vertices[i].Position;
 		vertices[k].Normal = sphere.Vertices[i].Normal;
 		vertices[k].TexC = sphere.Vertices[i].TexC;
 		vertices[k].TangentU = sphere.Vertices[i].TangentU;
+
+		XMVECTOR P = XMLoadFloat3(&sphere.Vertices[i].Position);
+
+		vMin = XMVectorMin(vMin, P);
+		vMax = XMVectorMax(vMax, P);
 	}
 
+	BoundingBox sphere_bounds;
+	XMStoreFloat3(&sphere_bounds.Center, 0.5f * (vMin + vMax));
+	XMStoreFloat3(&sphere_bounds.Extents, 0.5f * (vMax - vMin));
+	sphereSubmesh.Bounds = sphere_bounds;
+
+	vMin = XMLoadFloat3(&vMinf3);
+	vMax = XMLoadFloat3(&vMaxf3);
 	for (size_t i = 0; i < cylinder.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = cylinder.Vertices[i].Position;
 		vertices[k].Normal = cylinder.Vertices[i].Normal;
 		vertices[k].TexC = cylinder.Vertices[i].TexC;
 		vertices[k].TangentU = cylinder.Vertices[i].TangentU;
+
+		XMVECTOR P = XMLoadFloat3(&cylinder.Vertices[i].Position);
+
+		vMin = XMVectorMin(vMin, P);
+		vMax = XMVectorMax(vMax, P);
 	}
+
+	BoundingBox cylinder_bounds;
+	XMStoreFloat3(&cylinder_bounds.Center, 0.5f * (vMin + vMax));
+	XMStoreFloat3(&cylinder_bounds.Extents, 0.5f * (vMax - vMin));
+	cylinderSubmesh.Bounds = cylinder_bounds;
 
 	std::vector<std::uint16_t> indices;
 	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
@@ -774,6 +851,11 @@ void ZeroRenderer::BuildMaterials()
 		4, 7,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
 		XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
+
+	//matManager->CreateMaterial("highlight0",
+	//	5, 3,
+	//	XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
+	//	XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
 }
 
 void ZeroRenderer::BuildRenderItems()
@@ -791,6 +873,7 @@ void ZeroRenderer::BuildRenderItems()
 			StartIndexLocation : 在索引缓冲区中的 offset
 			BaseVertexLocation : 在顶点缓冲区中的 offset
 			PrimitiveType      : 该图元的拓扑类型 (默认为 TRIANGLELIST)
+			Bounds
 		每个 RItem 的 ObjCBIndex 按顺序生成 (0, 1, 2, ...)
 	*/
 
@@ -802,19 +885,21 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
 		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
+		general_geo->DrawArgs["sphere"].BaseVertexLocation,
+		general_geo->DrawArgs["sphere"].Bounds
 	);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Opaque,
-		XMMatrixScaling(3.0f, 3.0f, 3.0f),
-		XMMatrixScaling(8.0f, 8.0f, 1.0f),
-		matManager->GetMaterial("tile0"),
-		general_geo,
-		general_geo->DrawArgs["grid"].IndexCount,
-		general_geo->DrawArgs["grid"].StartIndexLocation,
-		general_geo->DrawArgs["grid"].BaseVertexLocation
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Opaque,
+	//	XMMatrixScaling(3.0f, 3.0f, 3.0f),
+	//	XMMatrixScaling(8.0f, 8.0f, 1.0f),
+	//	matManager->GetMaterial("tile0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["grid"].IndexCount,
+	//	general_geo->DrawArgs["grid"].StartIndexLocation,
+	//	general_geo->DrawArgs["grid"].BaseVertexLocation,
+	//	general_geo->DrawArgs["grid"].Bounds
+	//);
 
 	mScene->CreateRenderItem(
 		RenderLayer::Opaque,
@@ -824,7 +909,8 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
 		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
+		general_geo->DrawArgs["sphere"].BaseVertexLocation,
+		general_geo->DrawArgs["sphere"].Bounds
 	);
 
 	mScene->CreateRenderItem(
@@ -835,7 +921,8 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo,
 		general_geo->DrawArgs["box"].IndexCount,
 		general_geo->DrawArgs["box"].StartIndexLocation,
-		general_geo->DrawArgs["box"].BaseVertexLocation
+		general_geo->DrawArgs["box"].BaseVertexLocation,
+		general_geo->DrawArgs["box"].Bounds
 	);
 
 	mScene->CreateRenderItem(
@@ -846,7 +933,8 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo,
 		general_geo->DrawArgs["box"].IndexCount,
 		general_geo->DrawArgs["box"].StartIndexLocation,
-		general_geo->DrawArgs["box"].BaseVertexLocation
+		general_geo->DrawArgs["box"].BaseVertexLocation,
+		general_geo->DrawArgs["box"].Bounds
 	);
 
 	mScene->CreateRenderItem(
@@ -857,19 +945,9 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo,
 		general_geo->DrawArgs["sphere"].IndexCount,
 		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation
+		general_geo->DrawArgs["sphere"].BaseVertexLocation,
+		general_geo->DrawArgs["sphere"].Bounds
 	);
-
-	//mScene->CreateRenderItem(
-	//	RenderLayer::Debug,
-	//	XMMatrixRotationX(45.0f),
-	//	XMMatrixIdentity(),
-	//	matManager->GetMaterial("bricks0"),
-	//	general_geo,
-	//	general_geo->DrawArgs["quad"].IndexCount,
-	//	general_geo->DrawArgs["quad"].StartIndexLocation,
-	//	general_geo->DrawArgs["quad"].BaseVertexLocation
-	//);
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const
@@ -910,4 +988,45 @@ LRESULT ZeroRenderer::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return true;
 
 	return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
+}
+
+void ZeroRenderer::Pick(int sx, int sy)
+{
+	OutputDebugString(L"InPick\n");
+	XMFLOAT4X4 P = mCamera.GetProj4x4f();
+
+	// Compute picking ray in view space.
+	float vx = (+2.0f * sx / mClientWidth - 1.0f) / P(0, 0);
+	float vy = (-2.0f * sy / mClientHeight + 1.0f) / P(1, 1);
+
+	// Ray definition in view space.
+	XMVECTOR rayOrigin = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	XMVECTOR rayDir = XMVectorSet(vx, vy, 1.0f, 0.0f);
+
+	XMMATRIX V = mCamera.GetView();
+	XMMATRIX invView = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(V)), V);
+
+	for (auto ri : mScene->GetRenderLayer((int)RenderLayer::Opaque))
+	{
+		auto geo = ri->Geo;
+
+		XMMATRIX W = XMLoadFloat4x4(&ri->World);
+		XMMATRIX invWorld = XMMatrixInverse(get_rvalue_ptr(XMMatrixDeterminant(W)), W);
+
+		// Tranform ray to vi space of Mesh.
+		XMMATRIX toLocal = XMMatrixMultiply(invView, invWorld);
+
+		rayOrigin = XMVector3TransformCoord(rayOrigin, toLocal);
+		rayDir = XMVector3TransformNormal(rayDir, toLocal);
+
+		// Make the ray direction unit length for the intersection tests.
+		rayDir = XMVector3Normalize(rayDir);
+
+		float tmin = 0.0f;
+		if (ri->Bounds.Intersects(rayOrigin, rayDir, tmin))
+		{
+			OutputDebugString(L"InInnerPick\n");
+			mPickedRitem = ri;
+		}
+	}
 }

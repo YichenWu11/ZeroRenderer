@@ -27,6 +27,7 @@ public:
 		UINT IndexCount,
 		UINT StartIndexLocation,
 		UINT BaseVertexLocation,
+		BoundingBox bounds,
 		D3D12_PRIMITIVE_TOPOLOGY PrimitiveType= D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	void DeleteLastRenderItem(RenderLayer layer);
@@ -37,6 +38,9 @@ public:
 
 	size_t GetRitemSize() const { return mAllRitems.size(); }
 
+	std::vector<std::unique_ptr<RenderItem>>& GetAllRitems() { return mAllRitems; }
+
+	std::vector<RenderItem*>& GetRenderLayer(int layer) { return mRitemLayer[layer]; }
 private:
 	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
 
