@@ -411,7 +411,7 @@ bool D3DApp::InitMainWindow()
 		return false;
 	}
 
-	ShowWindow(mhMainWnd, SW_SHOW);
+	ShowWindow(mhMainWnd, SW_SHOWMAXIMIZED);
 	UpdateWindow(mhMainWnd);
 
 	return true;
