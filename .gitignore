@@ -1,4 +1,5 @@
 .vs
 x64
+packages
 ./ZeroRenderer/x64
 .VSCodeCounter
