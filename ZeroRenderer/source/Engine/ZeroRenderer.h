@@ -67,6 +67,7 @@ private:
     void BuildSsaoRootSignature();
     void BuildDescriptorHeaps();
     void BuildShapeGeometry();
+    void BuildModelGeometry(const char*, const char*, const char*);
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
