@@ -22,3 +22,7 @@ A Simple Renderer Based on DirectX12 (学习龙书的练手项目)
 - [x] Gui (imgui)
 - [ ] Reflection
 - [ ] new math library
+
+---
+
+### *<font color=lightyellow>计划用[CDX12](https://github.com/YichenWu11/ZeroRenderer) and CMake重写一个新的Renderer, ZeroRenderer might be deprecated.<font>*

@@ -434,7 +434,7 @@ bool D3DApp::InitDirect3D()
 	// Try to create hardware device.
 	HRESULT hardwareResult = D3D12CreateDevice(
 		nullptr,             // default adapter
-		D3D_FEATURE_LEVEL_11_0,  // DX11
+		D3D_FEATURE_LEVEL_11_0,
 		IID_PPV_ARGS(&md3dDevice));
 
 	// Fallback to WARP device. (回退至WARP设备--->windows高级光栅化平台)

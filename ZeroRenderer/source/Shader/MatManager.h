@@ -63,5 +63,4 @@ public:
 	size_t GetSize() { return mMaterials.size(); }
 private:
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
-
 };

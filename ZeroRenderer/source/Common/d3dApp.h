@@ -13,8 +13,6 @@
 #include "d3dUtil.h"
 #include "GameTimer.h"
 
-// Link necessary d3d12 libraries.
-
 class D3DApp
 {
 protected:
@@ -101,7 +99,7 @@ protected:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCommandList;
 
-	static const int SwapChainBufferCount = 2;
+	static const int SwapChainBufferCount = 3;
 	int mCurrBackBuffer = 0;
     Microsoft::WRL::ComPtr<ID3D12Resource> mSwapChainBuffer[SwapChainBufferCount];
     Microsoft::WRL::ComPtr<ID3D12Resource> mDepthStencilBuffer;

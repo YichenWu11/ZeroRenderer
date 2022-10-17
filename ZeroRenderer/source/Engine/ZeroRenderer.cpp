@@ -157,6 +157,8 @@ void ZeroRenderer::DrawImGui()
 	{
 		ImGui::Begin("Scene And Objects");
 
+		ImGui::SetWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+
 		ImGui::Checkbox("Demo Window", &show_demo_window);
 		ImGui::Checkbox("Style Editor", &show_style);
 		ImGui::Checkbox("Add RenderItem", &add_render_item);
@@ -238,6 +240,9 @@ void ZeroRenderer::DrawImGui()
 		static XMFLOAT3 tex_transform = { 1.0f, 1.0f, 1.0f };
 
 		ImGui::Begin("Edit RenderItem", &add_render_item);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+
+		ImGui::SetWindowPos(ImVec2(0, 720), ImGuiCond_Always);
+
 		ImGui::Text("Add RenderItem to Scene\n");
 
 		static const char* layers[] = { "Opaque", "Sky", "Transparent", "Debug" };

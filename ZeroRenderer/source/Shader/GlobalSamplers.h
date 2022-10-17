@@ -1,9 +1,5 @@
 #pragma once
 
-//
-// Global Samplers ( size == 7 )
-//
-
 #include "../Common/d3dUtil.h"
 #include "../Common/d3dx12.h"
 
