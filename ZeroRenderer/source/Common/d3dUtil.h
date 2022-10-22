@@ -27,7 +27,6 @@
 #include <sstream>
 #include <cassert>
 #include "d3dx12.h"
-#include "DDSTextureLoader.h"
 #include "../Math/MathHelper.h"
 #include "Metalib.h"
 #include <type_traits>

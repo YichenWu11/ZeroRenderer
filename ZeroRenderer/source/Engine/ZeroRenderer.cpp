@@ -1,5 +1,8 @@
 #include "ZeroRenderer.h"
 #include <windowsx.h>
+#include "ResourceUploadBatch.h"
+#include "DDSTextureLoader.h"
+#include "WICTextureLoader.h"
 
 const int gNumFrameResources = 3;
 
@@ -17,6 +20,7 @@ ZeroRenderer::ZeroRenderer(HINSTANCE hInstance) : D3DApp(hInstance)
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsClassic();
 }
 
 ZeroRenderer::~ZeroRenderer() 
@@ -52,8 +56,10 @@ bool ZeroRenderer::Initialize()
 	BuildSsaoRootSignature();
 	BuildDescriptorHeaps();
 	BuildShapeGeometry();
-	BuildModelGeometry("asset\\models\\Pikachu.txt", "pikachu", "pikaGeo");
-	BuildModelGeometry("asset\\models\\Squirtle.txt", "squirtle", "squiGeo");
+	BuildModelGeometry("asset\\models\\Pikachu.txt", "pikachu", "pikaGeo", false, false);
+	BuildModelGeometry("asset\\models\\Squirtle.txt", "squirtle", "squiGeo", false, false);
+	BuildModelGeometry("asset\\models\\marry.txt", "marry", "marryGeo", true, true);
+	BuildModelGeometry("asset\\models\\cow.txt", "cow", "cowGeo", true, true);
 	BuildMaterials();
 	BuildRenderItems();
 	BuildFrameResources();
@@ -151,6 +157,8 @@ void ZeroRenderer::DrawImGui()
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	ImGui::SetNextWindowBgAlpha(1.0f);
+
 	if (show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
 
@@ -229,13 +237,15 @@ void ZeroRenderer::DrawImGui()
 		ImGui::End();
 	}
 
+	ImGui::SetNextWindowBgAlpha(1.0f);
+
 	if (add_render_item)
 	{
 
-		static XMFLOAT3 world_pos = { 15.0f, 6.0f, -20.0f };
+		static XMFLOAT3 world_pos = { 5.0f, 0.0f, -20.0f };
 		static XMFLOAT3 world_scale = { 4.0f, 4.0f, 4.0f };
 		static XMFLOAT3 rotate_axis = { 0.0f, 1.0f, 0.0f };
-		static float rotate_angle = 0.0f;
+		static float rotate_angle = 180.0f;
 
 		static XMFLOAT3 tex_transform = { 1.0f, 1.0f, 1.0f };
 
@@ -257,12 +267,12 @@ void ZeroRenderer::DrawImGui()
 
 		ImGui::InputFloat3("texture scale matrix", (float*)&(tex_transform));
 
-		static const char* material_items[] = { "bricks0", "tile0", "mirror0", "brokenGlass0", "sky"};
-		static int material_item = 0;
+		static const char* material_items[] = { "bricks0", "tile0", "mirror0", "brokenGlass0", "sky", "marry"};
+		static int material_item = 2;
 		ImGui::Combo("Material", &material_item, material_items, IM_ARRAYSIZE(material_items));
 
-		static const char* shape_items[] = { "box", "grid", "sphere", "cylinder", "pikachu", "squirtle"};
-		static int shape_item = 0;
+		static const char* shape_items[] = { "box", "grid", "sphere", "cylinder", "marry", "squirtle", "pikachu", "cow"};
+		static int shape_item = 4;
 		ImGui::Combo("Shape", &shape_item, shape_items, IM_ARRAYSIZE(shape_items));
 
 		if (ImGui::Button("CreateItem"))
@@ -274,9 +284,14 @@ void ZeroRenderer::DrawImGui()
 				if (shape_item < 4)
 					general_geo = mGeometries["shapeGeo"].get();
 				else if (shape_item == 4)
+					general_geo = mGeometries["marryGeo"].get();
+				else if (shape_item == 5)
+					general_geo = mGeometries["squiGeo"].get();
+				else if(shape_item == 6)
 					general_geo = mGeometries["pikaGeo"].get();
 				else
-					general_geo = mGeometries["squiGeo"].get();
+					general_geo = mGeometries["cowGeo"].get();
+
 				mScene->CreateRenderItem(
 					static_cast<RenderLayer>(layer),
 					/* first scale, rotate, then translation */
@@ -467,6 +482,7 @@ void ZeroRenderer::LoadTextures()
 		"tileNormalMap",
 
 		"defaultDiffuseMap",
+		"marryDiffuseMap",
 		"skyCubeMap",
 	};
 
@@ -481,19 +497,31 @@ void ZeroRenderer::LoadTextures()
 		L"asset\\texture\\common\\tile_nmap.dds",
 			
 		L"asset\\texture\\common\\white1x1.dds",
-		L"asset\\texture\\sky\\desertcube1024.dds",
+		L"asset\\texture\\marry\\marry.dds",
+		L"asset\\texture\\sky\\snowcube1024.dds",
 	};
+
+	DirectX::ResourceUploadBatch resourceUpload(md3dDevice.Get());
 
 	for (int i = 0; i < (int)texNames.size(); ++i)
 	{
+		resourceUpload.Begin();
 		auto texMap = std::make_unique<Texture>();
 		texMap->Name = texNames[i];
 		texMap->Filename = texFilenames[i];
-		ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
-			mCommandList.Get(), texMap->Filename.c_str(),
-			texMap->Resource, texMap->UploadHeap));
+
+		ThrowIfFailed(DirectX::CreateDDSTextureFromFile(
+			md3dDevice.Get(),
+			resourceUpload,
+			texFilenames[i].c_str(),
+			texMap->Resource.ReleaseAndGetAddressOf()
+		));
 
 		mTextures[texMap->Name] = std::move(texMap);
+		auto uploadResourcesFinished = resourceUpload.End(
+			mCommandQueue.Get());
+
+		uploadResourcesFinished.wait();
 	}
 }
 
@@ -611,7 +639,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 18;
+	srvHeapDesc.NumDescriptors = 20;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // shader_visible
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -629,6 +657,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 		mTextures["tileNormalMap"]->Resource,
 		mTextures["defaultDiffuseMap"]->Resource,
 		mTextures["brokenGlassDiffuseMap"]->Resource,
+		mTextures["marryDiffuseMap"]->Resource
 	};
 
 	auto skyCubeMap = mTextures["skyCubeMap"]->Resource;
@@ -648,6 +677,14 @@ void ZeroRenderer::BuildDescriptorHeaps()
 		// next descriptor
 		hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
 	}
+
+	//srvDesc.Format = tex2DList[(UINT)tex2DList.size() - 1]->GetDesc().Format;
+	//srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+	//srvDesc.Texture3D.MipLevels = tex2DList[(UINT)tex2DList.size() - 1]->GetDesc().MipLevels;
+	//srvDesc.Texture3D.MostDetailedMip = 0;
+	//srvDesc.Texture3D.ResourceMinLODClamp = 0.f;
+	//md3dDevice->CreateShaderResourceView(tex2DList[(UINT)tex2DList.size() - 1].Get(), &srvDesc, hDescriptor);
+	//hDescriptor.Offset(1, mCbvSrvUavDescriptorSize);
 
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 	srvDesc.TextureCube.MostDetailedMip = 0;
@@ -694,7 +731,7 @@ void ZeroRenderer::BuildDescriptorHeaps()
 		mRtvDescriptorSize);
 }
 
-void ZeroRenderer::BuildModelGeometry(const char* path, const char* modelname, const char* geoname)
+void ZeroRenderer::BuildModelGeometry(const char* path, const char* modelname, const char* geoname, bool is_normal, bool is_uv)
 {
 	std::ifstream fin(path);
 
@@ -722,9 +759,14 @@ void ZeroRenderer::BuildModelGeometry(const char* path, const char* modelname, c
 	for (UINT i = 0; i < vcount; ++i)
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
-		vertices[i].Normal = vertices[i].Pos;
+		if (is_normal) fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+		else vertices[i].Normal = vertices[i].Pos;
 
-		vertices[i].TexC = { vertices[i].Pos.x, vertices[i].Pos.y };
+		if (is_uv) 
+		{ 
+			fin >> vertices[i].TexC.x >> vertices[i].TexC.y; 
+		}
+		else vertices[i].TexC = { vertices[i].Pos.x, vertices[i].Pos.y };
 
 		XMVECTOR P = XMLoadFloat3(&vertices[i].Pos);
 
@@ -1027,14 +1069,14 @@ void ZeroRenderer::BuildMaterials()
 		XMFLOAT3(0.727811f, 0.626959f, 0.626959f), 0.9f);
 
 	matManager->CreateMaterial("sky",
-		4, 7,
+		4, 8,
 		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
 		XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
 
-	//matManager->CreateMaterial("highlight0",
-	//	5, 3,
-	//	XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
-	//	XMFLOAT3(0.1f, 0.1f, 0.1f), 1.0f);
+	matManager->CreateMaterial("marry",
+		5, 7,
+		XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
+		XMFLOAT3(0.1f, 0.1f, 0.1f), 0.3f);
 }
 
 void ZeroRenderer::BuildRenderItems()
@@ -1080,53 +1122,53 @@ void ZeroRenderer::BuildRenderItems()
 		general_geo->DrawArgs["grid"].Bounds
 	);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("mirror0"),
-		general_geo,
-		general_geo->DrawArgs["sphere"].IndexCount,
-		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation,
-		general_geo->DrawArgs["sphere"].Bounds
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Opaque,
+	//	XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f),
+	//	XMMatrixIdentity(),
+	//	matManager->GetMaterial("mirror0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["sphere"].IndexCount,
+	//	general_geo->DrawArgs["sphere"].StartIndexLocation,
+	//	general_geo->DrawArgs["sphere"].BaseVertexLocation,
+	//	general_geo->DrawArgs["sphere"].Bounds
+	//);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("bricks0"),
-		general_geo,
-		general_geo->DrawArgs["box"].IndexCount,
-		general_geo->DrawArgs["box"].StartIndexLocation,
-		general_geo->DrawArgs["box"].BaseVertexLocation,
-		general_geo->DrawArgs["box"].Bounds
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Opaque,
+	//	XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(8.0f, 6.0f, 3.0f),
+	//	XMMatrixIdentity(),
+	//	matManager->GetMaterial("bricks0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["box"].IndexCount,
+	//	general_geo->DrawArgs["box"].StartIndexLocation,
+	//	general_geo->DrawArgs["box"].BaseVertexLocation,
+	//	general_geo->DrawArgs["box"].Bounds
+	//);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Opaque,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("tile0"),
-		general_geo,
-		general_geo->DrawArgs["box"].IndexCount,
-		general_geo->DrawArgs["box"].StartIndexLocation,
-		general_geo->DrawArgs["box"].BaseVertexLocation,
-		general_geo->DrawArgs["box"].Bounds
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Opaque,
+	//	XMMatrixScaling(4.0f, 4.0f, 4.0f) * XMMatrixTranslation(16.0f, 6.0f, 6.0f),
+	//	XMMatrixIdentity(),
+	//	matManager->GetMaterial("tile0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["box"].IndexCount,
+	//	general_geo->DrawArgs["box"].StartIndexLocation,
+	//	general_geo->DrawArgs["box"].BaseVertexLocation,
+	//	general_geo->DrawArgs["box"].Bounds
+	//);
 
-	mScene->CreateRenderItem(
-		RenderLayer::Transparent,
-		XMMatrixScaling(4.0f, 4.0f, 4.0f)* XMMatrixTranslation(-8.0f, 6.0f, -3.0f),
-		XMMatrixIdentity(),
-		matManager->GetMaterial("brokenGlass0"),
-		general_geo,
-		general_geo->DrawArgs["sphere"].IndexCount,
-		general_geo->DrawArgs["sphere"].StartIndexLocation,
-		general_geo->DrawArgs["sphere"].BaseVertexLocation,
-		general_geo->DrawArgs["sphere"].Bounds
-	);
+	//mScene->CreateRenderItem(
+	//	RenderLayer::Transparent,
+	//	XMMatrixScaling(4.0f, 4.0f, 4.0f)* XMMatrixTranslation(-8.0f, 6.0f, -3.0f),
+	//	XMMatrixIdentity(),
+	//	matManager->GetMaterial("brokenGlass0"),
+	//	general_geo,
+	//	general_geo->DrawArgs["sphere"].IndexCount,
+	//	general_geo->DrawArgs["sphere"].StartIndexLocation,
+	//	general_geo->DrawArgs["sphere"].BaseVertexLocation,
+	//	general_geo->DrawArgs["sphere"].Bounds
+	//);
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE ZeroRenderer::GetCpuSrv(int index)const

@@ -4,6 +4,7 @@
 
 #include "d3dApp.h"
 #include <WindowsX.h>
+#include <dwmapi.h>
 
 using Microsoft::WRL::ComPtr;
 using namespace std;

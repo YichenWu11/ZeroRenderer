@@ -34,7 +34,7 @@ void Scene::CreateRenderItem(
 
 void Scene::DeleteLastRenderItem(RenderLayer layer)
 {
-	if (!mRitemLayer[(int)layer].empty())
+	if (!mAllRitems.empty() && !mRitemLayer[(int)layer].empty())
 	{
 		mRitemLayer[(int)layer].pop_back();
 		mAllRitems.pop_back();

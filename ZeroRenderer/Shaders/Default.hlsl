@@ -76,7 +76,8 @@ float4 PS(VertexOut pin) : SV_Target
 	uint normalMapIndex = matData.NormalMapIndex;
 	
     // Dynamically look up the texture in the array.
-    diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
+    if (diffuseMapIndex == 7) diffuseAlbedo *= 0.6;
+    else diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
 
 #ifdef ALPHA_TEST
     // Discard pixel if texture alpha < 0.1.  We do this test as soon 

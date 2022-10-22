@@ -2,7 +2,7 @@
 
 ShadowPass::ShadowPass(ID3D12Device* device, UINT size) : mCbvSrvUavDescriptorSize(size)
 {
-	mShadowMap = std::make_unique<ShadowMap>(device, 4096, 4096);
+	mShadowMap = std::make_unique<ShadowMap>(device, 4096*4, 4096*4);
 	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	mSceneBounds.Radius = sqrtf(37.0f * 37.0f + 37.0f * 37.0f);
 }
